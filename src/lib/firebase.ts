@@ -4,8 +4,14 @@ import {
   initializeAuth, 
   // @ts-ignore
   getReactNativePersistence,
-  browserLocalPersistence,
-  Auth
+  Auth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  ConfirmationResult
 } from 'firebase/auth';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,6 +48,18 @@ try {
   auth = getAuth(app);
 }
 
-export { app, auth };
-export default app;
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+export { 
+  app, 
+  auth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPhoneNumber, 
+  RecaptchaVerifier,
+  ConfirmationResult 
+};
+export default app;

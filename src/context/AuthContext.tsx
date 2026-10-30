@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, UserRole } from '../types';
-import { DEMO_PROFILES, supabase, syncUserProfileToSupabase, fetchUserProfileFromSupabase } from '../lib/supabaseClient';
+import {
+  DEMO_PROFILES,
+  supabase,
+  syncUserProfileToSupabase,
+  fetchUserProfileFromSupabase,
+} from '../lib/supabaseClient';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 
@@ -17,6 +22,18 @@ interface AuthContextType {
   isLoadingAuth: boolean;
   loginAs: (role: UserRole, profile?: Partial<UserProfile>) => Promise<void>;
   loginWithPhone: (phone: string, firebaseUid?: string, role?: UserRole) => Promise<UserProfile>;
+  loginWithGoogle: (data: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url?: string;
+    role?: UserRole;
+  }) => Promise<UserProfile>;
+  loginWithEmailPassword: (
+    email: string,
+    fullName?: string,
+    role?: UserRole
+  ) => Promise<UserProfile>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   logout: () => Promise<void>;
   switchRole: () => void;
@@ -43,18 +60,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUser) {
           const parsed: UserProfile = JSON.parse(storedUser);
           setCurrentUser(parsed);
-          
-          // Optionally refresh fresh profile from Supabase in background
+
+          // Refresh profile from Supabase in background if available
           if (parsed.phone) {
-            fetchUserProfileFromSupabase(parsed.phone).then((fresh) => {
-              if (fresh) {
-                setCurrentUser(fresh);
-                AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh)).catch(() => {});
-              }
-            }).catch(() => {});
+            fetchUserProfileFromSupabase(parsed.phone)
+              .then((fresh) => {
+                if (fresh) {
+                  setCurrentUser(fresh);
+                  AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh)).catch(() => {});
+                }
+              })
+              .catch(() => {});
           }
         } else {
-          // Default unauthenticated state so user can log in with their phone
           setCurrentUser(null);
         }
       } catch (err) {
@@ -80,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Login with quick demo profile
+  // Quick preset login
   const loginAs = async (role: UserRole, profile?: Partial<UserProfile>) => {
     const base = role === 'customer' ? DEMO_PROFILES.customer : DEMO_PROFILES.vendor;
     const finalProfile: UserProfile = {
@@ -96,16 +114,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Real phone OTP sign in
-  const loginWithPhone = async (phone: string, firebaseUid?: string, role: UserRole = 'customer'): Promise<UserProfile> => {
-    // 1. Try fetching existing Supabase profile for this phone
+  const loginWithPhone = async (
+    phone: string,
+    firebaseUid?: string,
+    role: UserRole = 'customer'
+  ): Promise<UserProfile> => {
     let profile = await fetchUserProfileFromSupabase(phone);
 
     if (!profile) {
-      // 2. If first time login, create starter profile
       profile = {
         id: firebaseUid || `user-${Date.now()}`,
         phone,
-        name: '', // Will prompt to complete in Profile Screen
+        name: '',
         email: `${phone.replace(/\D/g, '').slice(-10)}@utsavhub.com`,
         role,
         selectedCity: 'Visakhapatnam',
@@ -113,7 +133,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
         isProfileComplete: false,
       };
-      // Save initial record to Supabase
       await syncUserProfileToSupabase(profile);
     }
 
@@ -121,7 +140,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
     setIsAuthModalVisible(false);
 
-    // Redirect user directly to Profile page to complete name and details!
+    if (navHandler) {
+      navHandler('profile', 'profile');
+    }
+
+    return profile;
+  };
+
+  // Google Sign-In Connectivity
+  const loginWithGoogle = async (data: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url?: string;
+    role?: UserRole;
+  }): Promise<UserProfile> => {
+    const role = data.role || 'customer';
+    let profile = await fetchUserProfileFromSupabase(data.id);
+
+    if (!profile) {
+      profile = {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        phone: '+91 98480 12345',
+        role,
+        selectedCity: 'Visakhapatnam',
+        area_locality: '',
+        avatar_url:
+          data.avatar_url ||
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        isProfileComplete: false,
+      };
+      await syncUserProfileToSupabase(profile);
+    }
+
+    setCurrentUser(profile);
+    await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
+    setIsAuthModalVisible(false);
+
+    if (navHandler) {
+      navHandler('profile', 'profile');
+    }
+
+    return profile;
+  };
+
+  // Email & Password Sign In
+  const loginWithEmailPassword = async (
+    email: string,
+    fullName?: string,
+    role: UserRole = 'customer'
+  ): Promise<UserProfile> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const derivedName = fullName?.trim() || cleanEmail.split('@')[0];
+
+    const profile: UserProfile = {
+      id: `usr-${Date.now()}`,
+      name: derivedName,
+      email: cleanEmail,
+      phone: '+91 98480 12345',
+      role,
+      selectedCity: 'Visakhapatnam',
+      area_locality: '',
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+      isProfileComplete: true,
+    };
+
+    setCurrentUser(profile);
+    await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
+    await syncUserProfileToSupabase(profile);
+    setIsAuthModalVisible(false);
+
     if (navHandler) {
       navHandler('profile', 'profile');
     }
@@ -180,6 +270,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoadingAuth,
         loginAs,
         loginWithPhone,
+        loginWithGoogle,
+        loginWithEmailPassword,
         updateProfile,
         logout,
         switchRole,

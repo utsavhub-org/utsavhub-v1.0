@@ -132,14 +132,14 @@ export default function ProfileScreen({
           </View>
           <Text style={styles.loggedOutTitle}>Welcome to UtsavHub</Text>
           <Text style={styles.loggedOutSub}>
-            Sign in with your mobile number to view saved mandapams, track your muhurtham venue holds, or manage your vendor business portal.
+            Sign in with Google, Phone OTP, or Email to view saved mandapams, track your muhurtham venue holds, or manage your vendor business portal.
           </Text>
           <TouchableOpacity
             style={styles.signInPrimaryBtn}
             onPress={openAuthModal}
             activeOpacity={0.85}
           >
-            <Text style={styles.signInPrimaryBtnText}>Sign In with Phone OTP</Text>
+            <Text style={styles.signInPrimaryBtnText}>Sign In with Google, Phone or Email</Text>
           </TouchableOpacity>
         </View>
       </View>

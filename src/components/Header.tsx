@@ -17,7 +17,7 @@ export default function Header({
   onPressWishlist,
   wishlistCount = 3,
 }: HeaderProps) {
-  const { userRole, openAuthModal } = useAuth();
+  const { userRole, openAuthModal, currentUser, isLoggedIn, navigateTo } = useAuth();
 
   return (
     <View style={styles.header}>
@@ -69,11 +69,22 @@ export default function Header({
 
         <TouchableOpacity
           style={styles.roleAvatar}
-          onPress={openAuthModal}
+          onPress={() => {
+            if (isLoggedIn) {
+              navigateTo('profile', 'profile');
+            } else {
+              openAuthModal();
+            }
+          }}
           activeOpacity={0.7}
-          accessibilityLabel="Account and Role Switcher"
+          accessibilityLabel="Account and Profile"
         >
-          {userRole === 'vendor' ? (
+          {currentUser?.avatar_url ? (
+            <Image
+              source={{ uri: currentUser.avatar_url }}
+              style={styles.headerAvatarImg}
+            />
+          ) : userRole === 'vendor' ? (
             <Building size={16} color={THEME.colors.gold} />
           ) : (
             <User size={16} color="#FFFFFF" />
@@ -185,5 +196,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+    overflow: 'hidden',
+  },
+  headerAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 19,
   },
 });
