@@ -1,11 +1,13 @@
 import React, { useRef } from 'react';
 import { Animated, TouchableWithoutFeedback, StyleProp, ViewStyle } from 'react-native';
+import { playButtonClick, playTabPop, playSuccessSound } from '../lib/soundManager';
 
 interface SpringPressableProps {
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
   activeScale?: number;
+  soundType?: 'click' | 'pop' | 'success' | 'none';
 }
 
 export default function SpringPressable({
@@ -13,6 +15,7 @@ export default function SpringPressable({
   style,
   children,
   activeScale = 0.97,
+  soundType = 'click',
 }: SpringPressableProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -34,9 +37,20 @@ export default function SpringPressable({
     }).start();
   };
 
+  const handlePress = () => {
+    if (soundType === 'click') {
+      playButtonClick();
+    } else if (soundType === 'pop') {
+      playTabPop();
+    } else if (soundType === 'success') {
+      playSuccessSound();
+    }
+    onPress?.();
+  };
+
   return (
     <TouchableWithoutFeedback
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >

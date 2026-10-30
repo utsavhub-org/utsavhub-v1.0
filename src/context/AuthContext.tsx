@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, UserRole } from '../types';
 import {
@@ -88,9 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const userRole: UserRole = currentUser?.role || 'customer';
   const isLoggedIn = currentUser !== null;
 
-  const registerNavHandler = (fn: (screen: ScreenType, tab?: TabType) => void) => {
+  const registerNavHandler = useCallback((fn: (screen: ScreenType, tab?: TabType) => void) => {
     setNavHandler(() => fn);
-  };
+  }, []);
 
   const navigateTo = (screen: ScreenType, tab?: TabType) => {
     if (navHandler) {
@@ -193,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: UserRole = 'customer'
   ): Promise<UserProfile> => {
     const cleanEmail = email.trim().toLowerCase();
+    const hasName = Boolean(fullName && fullName.trim().length > 1);
     const derivedName = fullName?.trim() || cleanEmail.split('@')[0];
 
     const profile: UserProfile = {
@@ -204,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       selectedCity: 'Visakhapatnam',
       area_locality: '',
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      isProfileComplete: true,
+      isProfileComplete: hasName,
     };
 
     setCurrentUser(profile);

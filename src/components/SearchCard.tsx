@@ -10,6 +10,7 @@ import {
 import { MapPin, Calendar, Users, Search, ChevronRight, X, Check } from 'lucide-react-native';
 import MuhurthamCalendar, { HINDU_MUHURTHAMS } from './MuhurthamCalendar';
 import { THEME } from '../theme/colors';
+import { playButtonClick, playTabPop } from '../lib/soundManager';
 
 const LOCALITIES = [
   'Visakhapatnam (All Areas)',
@@ -44,6 +45,7 @@ export default function SearchCard({ onSearch }: SearchCardProps) {
   const [guestModalVisible, setGuestModalVisible] = useState(false);
 
   const handleSearchPress = () => {
+    playButtonClick();
     const cleanLoc = location.replace(' (All Areas)', '');
     onSearch({
       location: cleanLoc === 'Visakhapatnam' ? '' : cleanLoc,

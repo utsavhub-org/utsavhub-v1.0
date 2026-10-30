@@ -6,6 +6,10 @@ import {
   VendorDocPdf,
   PriceUpdateRequest,
   MediaReel,
+  Review,
+  ReelComment,
+  SupportMessage,
+  CateringItem,
 } from '../types';
 import { MOCK_BUSINESSES } from './mockData';
 
@@ -23,7 +27,8 @@ const supabaseAnonKey =
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
-  supabaseUrl !== 'https://your-project.supabase.co'
+  !supabaseUrl.includes('your-project') &&
+  !supabaseAnonKey.includes('your-supabase')
 );
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
@@ -285,7 +290,15 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
 
   if (filters.category && filters.category !== 'all') {
     if (filters.category === 'wishlist') {
-      results = results.filter((b) => ['venue-1', 'venue-2', 'decor-1'].includes(b.id));
+      const wishlistIds = [
+        '11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+        '33333333-3333-3333-3333-333333333333',
+        'venue-1',
+        'venue-2',
+        'decor-1',
+      ];
+      results = results.filter((b) => wishlistIds.includes(b.id));
     } else {
       results = results.filter((b) => b.category === filters.category);
     }
@@ -607,3 +620,637 @@ export async function getVendorPdfs(businessId: string): Promise<VendorDocPdf[]>
   const biz = MOCK_BUSINESSES.find((b) => b.id === businessId);
   return biz?.vendor_pdfs || [];
 }
+
+// ---------------------------------------------------------------------------
+// 1. REVIEWS & RATINGS (VERIFIED PAST BOOKINGS ONLY)
+// ---------------------------------------------------------------------------
+
+const localReviews: Review[] = [
+  {
+    id: 'rev-1',
+    booking_id: '66666666-6666-6666-6666-666666666666',
+    business_id: '11111111-1111-1111-1111-111111111111',
+    user_id: 'usr-cust-1',
+    user_name: 'Ananya & Rahul',
+    user_avatar: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=400',
+    rating: 5,
+    review_text: 'Exceptional venue! The centralized AC was freezing despite 600 guests, and Narayana Rao sir supported our family throughout the muhurtham.',
+    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+];
+
+export async function getBusinessReviews(businessId: string): Promise<Review[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as Review[];
+      }
+    } catch (e) {
+      console.warn('Supabase fetch reviews note:', e);
+    }
+  }
+  return localReviews.filter((r) => r.business_id === businessId);
+}
+
+export async function canUserReviewBusiness(
+  userId: string,
+  businessId: string
+): Promise<{ canReview: boolean; bookingId?: string; message?: string }> {
+  // Check Supabase or local inquiries for completed or approved booking
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('booking_inquiries')
+        .select('id, status')
+        .eq('business_id', businessId)
+        .in('status', ['approved', 'completed'])
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        return { canReview: true, bookingId: data[0].id };
+      }
+    } catch (e) {
+      console.warn('Supabase canUserReview notice:', e);
+    }
+  }
+
+  const localBooking = localInquiries.find(
+    (inq) =>
+      inq.business_id === businessId &&
+      (inq.status === 'approved' || inq.status === 'completed')
+  );
+
+  if (localBooking) {
+    return { canReview: true, bookingId: localBooking.id };
+  }
+
+  return {
+    canReview: false,
+    message: 'Reviews are reserved exclusively for clients with a verified past or approved booking.',
+  };
+}
+
+export async function submitReview(
+  reviewData: Omit<Review, 'id' | 'created_at'>
+): Promise<Review | null> {
+  const newReview: Review = {
+    id: 'rev-' + Date.now(),
+    ...reviewData,
+    created_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          booking_id: reviewData.booking_id,
+          business_id: reviewData.business_id,
+          user_id: reviewData.user_id,
+          user_name: reviewData.user_name,
+          user_avatar: reviewData.user_avatar,
+          rating: reviewData.rating,
+          review_text: reviewData.review_text,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        return data as Review;
+      }
+    } catch (e) {
+      console.warn('Supabase review insert error:', e);
+    }
+  }
+
+  localReviews.unshift(newReview);
+  return newReview;
+}
+
+// ---------------------------------------------------------------------------
+// 2. REEL COMMENTS
+// ---------------------------------------------------------------------------
+
+const localReelComments: ReelComment[] = [
+  {
+    id: 'com-1',
+    reel_id: 'reel-1',
+    user_id: 'usr-1',
+    user_name: 'Pooja Reddy',
+    user_avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
+    comment_text: 'Lighting in the central dining hall looks magnificent! How is the parking access from NH16?',
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+  {
+    id: 'com-2',
+    reel_id: 'reel-1',
+    user_id: 'usr-vend-1',
+    user_name: 'Grand Swarna Management',
+    user_avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+    comment_text: 'Hi Pooja garu! We have a dedicated 100-car paved parking area right at the NH16 entrance with valet service.',
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+];
+
+export async function getReelComments(reelId: string): Promise<ReelComment[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('reel_comments')
+        .select('*')
+        .eq('reel_id', reelId)
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as ReelComment[];
+      }
+    } catch (e) {
+      console.warn('Supabase reel comments error:', e);
+    }
+  }
+  return localReelComments.filter((c) => c.reel_id === reelId || !c.reel_id);
+}
+
+export async function addReelComment(
+  commentData: Omit<ReelComment, 'id' | 'created_at'>
+): Promise<ReelComment | null> {
+  const newComment: ReelComment = {
+    id: 'com-' + Date.now(),
+    ...commentData,
+    created_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('reel_comments')
+        .insert({
+          reel_id: commentData.reel_id,
+          user_id: commentData.user_id,
+          user_name: commentData.user_name,
+          user_avatar: commentData.user_avatar,
+          comment_text: commentData.comment_text,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        return data as ReelComment;
+      }
+    } catch (e) {
+      console.warn('Supabase comment insert notice:', e);
+    }
+  }
+
+  localReelComments.unshift(newComment);
+  return newComment;
+}
+
+// ---------------------------------------------------------------------------
+// 3. PERSISTENT USER WISHLIST
+// ---------------------------------------------------------------------------
+
+let localWishlists: { [userId: string]: Set<string> } = {
+  'usr-cust-1': new Set(['11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333']),
+};
+
+export async function getUserWishlist(userId: string): Promise<string[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('user_wishlists')
+        .select('business_id')
+        .eq('user_id', userId);
+      if (!error && data) {
+        return data.map((d: any) => d.business_id);
+      }
+    } catch (e) {
+      console.warn('Supabase fetch wishlist notice:', e);
+    }
+  }
+  return Array.from(localWishlists[userId] || []);
+}
+
+export async function toggleUserWishlist(userId: string, businessId: string): Promise<boolean> {
+  if (!localWishlists[userId]) {
+    localWishlists[userId] = new Set();
+  }
+
+  const isSaved = localWishlists[userId].has(businessId);
+
+  if (isSaved) {
+    localWishlists[userId].delete(businessId);
+    if (supabase) {
+      try {
+        await supabase
+          .from('user_wishlists')
+          .delete()
+          .eq('user_id', userId)
+          .eq('business_id', businessId);
+      } catch (e) {}
+    }
+    return false;
+  } else {
+    localWishlists[userId].add(businessId);
+    if (supabase) {
+      try {
+        await supabase
+          .from('user_wishlists')
+          .insert({ user_id: userId, business_id: businessId });
+      } catch (e) {}
+    }
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4. LIVE SUPPORT CHAT
+// ---------------------------------------------------------------------------
+
+const localSupportMessages: SupportMessage[] = [
+  {
+    id: 'msg-1',
+    user_id: 'all',
+    user_name: 'UtsavHub Concierge',
+    sender: 'support',
+    message: 'Namaskaram! Welcome to UtsavHub Concierge. Need assistance comparing venues or checking auspicious muhurtham dates?',
+    created_at: new Date(Date.now() - 3600000 * 10).toISOString(),
+  },
+];
+
+export async function getSupportMessages(userId: string): Promise<SupportMessage[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('support_messages')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.eq.all`)
+        .order('created_at', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data as SupportMessage[];
+      }
+    } catch (e) {
+      console.warn('Supabase fetch support notice:', e);
+    }
+  }
+  return localSupportMessages.filter((m) => m.user_id === userId || m.user_id === 'all');
+}
+
+export async function sendSupportMessage(
+  userId: string,
+  userName: string,
+  message: string,
+  sender: 'user' | 'support' | 'vendor' = 'user'
+): Promise<SupportMessage | null> {
+  const newMsg: SupportMessage = {
+    id: 'msg-' + Date.now(),
+    user_id: userId,
+    user_name: userName,
+    sender,
+    message,
+    created_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('support_messages')
+        .insert({
+          user_id: userId,
+          user_name: userName,
+          sender,
+          message,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        return data as SupportMessage;
+      }
+    } catch (e) {
+      console.warn('Supabase support send notice:', e);
+    }
+  }
+
+  localSupportMessages.push(newMsg);
+  return newMsg;
+}
+
+// ---------------------------------------------------------------------------
+// 5. ITEMIZED CATERING ITEMS (NEGOTIABLE PRICING AFTER DISCUSSION)
+// ---------------------------------------------------------------------------
+
+let localCateringItems: CateringItem[] = [
+  {
+    id: 'cat-item-1',
+    business_id: '33333333-3333-3333-3333-333333333333',
+    category: 'sweet',
+    item_name: 'Special Pootharekulu with Pure Ghee & Dryfruits',
+    is_veg: true,
+    base_price_per_plate: 60.0,
+    negotiable_price_per_plate: 50.0,
+    is_available: true,
+  },
+  {
+    id: 'cat-item-2',
+    business_id: '33333333-3333-3333-3333-333333333333',
+    category: 'curry',
+    item_name: 'Andhra Gutti Vankaya Kura (Stuffed Brinjal Curry)',
+    is_veg: true,
+    base_price_per_plate: 50.0,
+    negotiable_price_per_plate: 45.0,
+    is_available: true,
+  },
+  {
+    id: 'cat-item-3',
+    business_id: '33333333-3333-3333-3333-333333333333',
+    category: 'curry',
+    item_name: 'Natukodi Pulusu with Hot Vada',
+    is_veg: false,
+    base_price_per_plate: 140.0,
+    negotiable_price_per_plate: 125.0,
+    is_available: true,
+  },
+  {
+    id: 'cat-item-4',
+    business_id: '33333333-3333-3333-3333-333333333333',
+    category: 'rice',
+    item_name: 'Ulava Charu Dum Biryani with Onion Raita',
+    is_veg: true,
+    base_price_per_plate: 85.0,
+    negotiable_price_per_plate: 75.0,
+    is_available: true,
+  },
+  {
+    id: 'cat-item-5',
+    business_id: '33333333-3333-3333-3333-333333333333',
+    category: 'live_stall',
+    item_name: 'Live Tandoor & Fresh Pan Ice Cream Counter',
+    is_veg: true,
+    base_price_per_plate: 70.0,
+    negotiable_price_per_plate: 60.0,
+    is_available: true,
+  },
+];
+
+export async function getCateringItems(businessId: string): Promise<CateringItem[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('catering_items')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('category', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data as CateringItem[];
+      }
+    } catch (e) {
+      console.warn('Supabase fetch catering items notice:', e);
+    }
+  }
+  return localCateringItems.filter((i) => i.business_id === businessId || !i.business_id);
+}
+
+export async function addCateringItem(
+  item: Omit<CateringItem, 'id' | 'created_at'>
+): Promise<CateringItem | null> {
+  const newItem: CateringItem = {
+    id: 'cat-item-' + Date.now(),
+    ...item,
+    created_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('catering_items')
+        .insert({
+          business_id: item.business_id,
+          category: item.category,
+          item_name: item.item_name,
+          is_veg: item.is_veg,
+          base_price_per_plate: item.base_price_per_plate,
+          negotiable_price_per_plate: item.negotiable_price_per_plate,
+          is_available: item.is_available,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        return data as CateringItem;
+      }
+    } catch (e) {
+      console.warn('Supabase insert catering item error:', e);
+    }
+  }
+
+  localCateringItems.unshift(newItem);
+  return newItem;
+}
+
+export async function updateCateringItemNegotiablePrice(
+  itemId: string,
+  negotiatedPrice: number
+): Promise<boolean> {
+  const item = localCateringItems.find((i) => i.id === itemId);
+  if (item) {
+    item.negotiable_price_per_plate = negotiatedPrice;
+  }
+
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('catering_items')
+        .update({ negotiable_price_per_plate: negotiatedPrice })
+        .eq('id', itemId);
+      return !error;
+    } catch (e) {
+      console.warn('Supabase update catering item price:', e);
+    }
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// 6. VENDOR MULTI-BUSINESS PORTAL & VISIBILITY TOGGLE
+// ---------------------------------------------------------------------------
+
+let vendorBusinessesStore: Business[] = [
+  {
+    id: '11111111-1111-1111-1111-111111111111',
+    name: 'Grand Swarna Palace Convention Hall',
+    category: 'venue',
+    city: 'Visakhapatnam',
+    area_locality: 'Madhurawada',
+    latitude: 17.72,
+    longitude: 83.31,
+    cover_image_url: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80',
+    gallery_images: [
+      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+      'https://images.unsplash.com/photo-1519741497674-611481863552?w=800',
+    ],
+    rating_avg: 4.9,
+    review_count: 28,
+    phone: '+91 98480 12345',
+    whatsapp_number: '+91 98480 12345',
+    is_verified: true,
+    is_active: true,
+    venue_details: {
+      id: 'vd-1',
+      business_id: '11111111-1111-1111-1111-111111111111',
+      is_ac: true,
+      seating_capacity: 800,
+      floating_capacity: 1500,
+      ac_rooms_count: 8,
+      parking_capacity_cars: 120,
+      outside_catering_allowed: true,
+      base_rental_price: 175000,
+      power_backup_kva: 125,
+    },
+  },
+  {
+    id: '33333333-3333-3333-3333-333333333333',
+    name: 'Swarna Royal Andhra & Mughlai Catering',
+    category: 'catering',
+    city: 'Visakhapatnam',
+    area_locality: 'Madhurawada & MVP Colony',
+    latitude: 17.72,
+    longitude: 83.31,
+    cover_image_url: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800',
+    gallery_images: [],
+    rating_avg: 4.8,
+    review_count: 42,
+    phone: '+91 98480 12345',
+    whatsapp_number: '+91 98480 12345',
+    is_verified: true,
+    is_active: true,
+  },
+  {
+    id: '44444444-4444-4444-4444-444444444444',
+    name: 'Swarna Kalakshetra Luxury Mandapam & Floral Decor',
+    category: 'decoration',
+    city: 'Visakhapatnam',
+    area_locality: 'Madhurawada',
+    latitude: 17.72,
+    longitude: 83.31,
+    cover_image_url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800',
+    gallery_images: [],
+    rating_avg: 4.9,
+    review_count: 36,
+    phone: '+91 98480 12345',
+    whatsapp_number: '+91 98480 12345',
+    is_verified: true,
+    is_active: false,
+  },
+];
+
+export async function getVendorBusinesses(vendorPhoneOrId: string): Promise<Business[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select(`
+          *,
+          vendors (*),
+          venue_details (*),
+          catering_packages (*)
+        `)
+        .order('display_order', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          city: b.vendors?.city || 'Visakhapatnam',
+          area_locality: b.vendors?.area_locality || 'Madhurawada',
+          latitude: 17.72,
+          longitude: 83.31,
+          cover_image_url: b.cover_image_url,
+          gallery_images: b.gallery_images || [],
+          rating_avg: 4.8,
+          review_count: 14,
+          phone: b.vendors?.phone || '+91 98480 12345',
+          whatsapp_number: b.vendors?.whatsapp_number || '+91 98480 12345',
+          is_verified: true,
+          is_active: b.is_active ?? true,
+        }));
+      }
+    } catch (e) {
+      console.warn('Supabase fetch vendor businesses notice:', e);
+    }
+  }
+  return vendorBusinessesStore;
+}
+
+export async function toggleBusinessActive(
+  businessId: string,
+  isActive: boolean
+): Promise<boolean> {
+  const biz = vendorBusinessesStore.find((b) => b.id === businessId);
+  if (biz) {
+    biz.is_active = isActive;
+  }
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('businesses')
+        .update({ is_active: isActive })
+        .eq('id', businessId);
+    } catch (e) {
+      console.warn('Supabase toggle business active notice:', e);
+    }
+  }
+  return true;
+}
+
+export async function createVendorBusiness(
+  businessData: Partial<Business>
+): Promise<Business | null> {
+  const newBiz: Business = {
+    id: 'biz-' + Date.now(),
+    name: businessData.name || 'New Wedding Service',
+    category: businessData.category || 'venue',
+    city: businessData.city || 'Visakhapatnam',
+    area_locality: businessData.area_locality || 'Madhurawada',
+    latitude: 17.72,
+    longitude: 83.31,
+    cover_image_url:
+      businessData.cover_image_url ||
+      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+    gallery_images: businessData.gallery_images || [],
+    rating_avg: 5.0,
+    review_count: 1,
+    phone: businessData.phone || '+91 98480 12345',
+    whatsapp_number: businessData.whatsapp_number || '+91 98480 12345',
+    is_verified: true,
+    is_active: true,
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .insert({
+          vendor_id: '11111111-1111-1111-1111-111111111111',
+          name: newBiz.name,
+          category: newBiz.category,
+          cover_image_url: newBiz.cover_image_url,
+          is_active: true,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        newBiz.id = data.id;
+      }
+    } catch (e) {
+      console.warn('Supabase business creation notice:', e);
+    }
+  }
+
+  vendorBusinessesStore.unshift(newBiz);
+  return newBiz;
+}
+

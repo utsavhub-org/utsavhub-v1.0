@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ScrollView,
   View,
@@ -16,17 +16,21 @@ import {
   Utensils,
   Flower2,
   Camera,
+  Music,
   Play,
   ArrowRight,
   ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react-native';
 import Header from '../components/Header';
 import SearchCard from '../components/SearchCard';
 import ListingCard from '../components/ListingCard';
 import ReelModal from '../components/ReelModal';
-import { MOCK_BUSINESSES } from '../lib/mockData';
+import ShimmerSkeleton from '../components/ShimmerSkeleton';
+import { getFilteredBusinesses } from '../lib/supabaseClient';
 import { Business, MediaReel } from '../types';
 import { THEME } from '../theme/colors';
+import { playButtonClick, playTabPop } from '../lib/soundManager';
 
 interface HomeScreenProps {
   onNavigateToListings: (params: { location?: string; date?: string; guests?: number; category?: string }) => void;
@@ -36,11 +40,50 @@ interface HomeScreenProps {
 }
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Services', icon: Sparkles },
-  { id: 'venue', label: 'AC Halls', icon: Building },
-  { id: 'decoration', label: 'Mandapam Decor', icon: Flower2 },
-  { id: 'catering', label: 'Catering', icon: Utensils },
-  { id: 'photography', label: 'Photography', icon: Camera },
+  // Line 1
+  {
+    id: 'all',
+    label: 'All Services',
+    subtitle: 'Full Directory',
+    icon: Sparkles,
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'venue',
+    label: 'AC Halls',
+    subtitle: 'Mandapams',
+    icon: Building,
+    image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'decoration',
+    label: 'Decor',
+    subtitle: 'Floral Stages',
+    icon: Flower2,
+    image: 'https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=400&q=80',
+  },
+  // Line 2
+  {
+    id: 'catering',
+    label: 'Catering',
+    subtitle: 'Royal Feasts',
+    icon: Utensils,
+    image: 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'photography',
+    label: 'Photography',
+    subtitle: '4K & Drone',
+    icon: Camera,
+    image: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'dj_sound',
+    label: 'Music & DJ',
+    subtitle: 'Sound & Band',
+    icon: Music,
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=400&q=80',
+  },
 ];
 
 export default function HomeScreen({
@@ -97,7 +140,27 @@ export default function HomeScreen({
     scrollOffset.current = currentY;
   };
 
-  const reelsList = MOCK_BUSINESSES.flatMap((b) =>
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    getFilteredBusinesses({})
+      .then((res) => {
+        if (isMounted) {
+          setBusinesses(res.businesses.filter((b) => b.is_active !== false));
+          setLoadingBusinesses(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoadingBusinesses(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const reelsList = businesses.flatMap((b) =>
     (b.media_reels || []).map((r) => ({ reel: r, business: b }))
   );
 
@@ -130,33 +193,85 @@ export default function HomeScreen({
           }}
         />
 
-        {/* Minimalist Categories */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesScroll}
-        >
-          {CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const isSelected = selectedCat === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.catPill, isSelected && styles.catPillActive]}
-                onPress={() => {
-                  setSelectedCat(cat.id);
-                  onNavigateToListings({ category: cat.id });
-                }}
-                activeOpacity={0.7}
-              >
-                <Icon size={14} color={isSelected ? '#FFFFFF' : THEME.colors.textPrimary} />
-                <Text style={[styles.catText, isSelected && styles.catTextActive]}>
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        {/* Two-Line Visual Category Tiles (Matching UtsavHub Luxury Style) */}
+        <View style={styles.categoryTilesSection}>
+          <View style={styles.sectionHeaderInner}>
+            <Text style={styles.sectionTitle}>EXPLORE BY SERVICE</Text>
+            <Text style={styles.sectionHint}>Select category to filter</Text>
+          </View>
+
+          <View style={styles.twoLineTilesGrid}>
+            {CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const isSelected = selectedCat === cat.id;
+
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryTile,
+                    isSelected && styles.categoryTileSelected,
+                  ]}
+                  onPress={() => {
+                    playTabPop();
+                    setSelectedCat(cat.id);
+                    onNavigateToListings({ category: cat.id });
+                  }}
+                  activeOpacity={0.82}
+                >
+                  {/* Photo Container */}
+                  <View style={styles.tileImageContainer}>
+                    <Image
+                      source={{ uri: cat.image }}
+                      style={styles.tileImage}
+                      fadeDuration={200}
+                    />
+                    <View style={styles.tileImageOverlay} />
+
+                    {/* Translucent Corner Icon Pill */}
+                    <View
+                      style={[
+                        styles.tileIconBadge,
+                        isSelected && styles.tileIconBadgeActive,
+                      ]}
+                    >
+                      <Icon
+                        size={12}
+                        color={isSelected ? '#0B0B0E' : '#FFFFFF'}
+                      />
+                    </View>
+
+                    {/* Selected Golden Check */}
+                    {isSelected && (
+                      <View style={styles.tileSelectedDot}>
+                        <CheckCircle2 size={13} color="#C5A059" />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Tile Typography with Name & Subtitle */}
+                  <View style={styles.tileTextContainer}>
+                    <Text
+                      style={[
+                        styles.tileName,
+                        isSelected && styles.tileNameSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {cat.label}
+                    </Text>
+                    <Text style={styles.tileSubtitle} numberOfLines={1}>
+                      {cat.subtitle}
+                    </Text>
+                  </View>
+
+                  {/* Active Indicator Bar at bottom of tile */}
+                  {isSelected && <View style={styles.tileActiveIndicator} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Cinematic Vertical Reels */}
         {reelsList.length > 0 && (
@@ -208,15 +323,19 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Listing Cards */}
-        {MOCK_BUSINESSES.map((b) => (
-          <ListingCard
-            key={b.id}
-            business={b}
-            date="2026-11-20"
-            onPress={() => onNavigateToVendor(b.id, '2026-11-20', 300)}
-          />
-        ))}
+        {/* Listing Cards with Shimmer Skeleton loading */}
+        {loadingBusinesses ? (
+          <ShimmerSkeleton count={3} />
+        ) : (
+          businesses.map((b) => (
+            <ListingCard
+              key={b.id}
+              business={b}
+              date="2026-11-20"
+              onPress={() => onNavigateToVendor(b.id, '2026-11-20', 300)}
+            />
+          ))
+        )}
 
         {/* Minimalist Trust Footer Banner */}
         <View style={styles.trustBanner}>
@@ -263,33 +382,122 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  categoriesScroll: {
+  categoryTilesSection: {
     paddingHorizontal: 16,
-    gap: 8,
-    paddingVertical: 8,
+    marginTop: 10,
+    marginBottom: 8,
   },
-  catPill: {
+  sectionHeaderInner: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  twoLineTilesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  categoryTile: {
+    width: '31.6%',
+    backgroundColor: THEME.colors.card,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    padding: 5,
+    paddingBottom: 7,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: THEME.colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  catPillActive: {
-    backgroundColor: THEME.colors.accentDark,
-    borderColor: THEME.colors.accentDark,
+  categoryTileSelected: {
+    borderColor: THEME.colors.gold,
+    borderWidth: 1.8,
+    backgroundColor: '#FAF7F0',
+    shadowColor: THEME.colors.gold,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  catText: {
+  tileImageContainer: {
+    width: '100%',
+    height: 60,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#E2E8F0',
+  },
+  tileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  tileImageOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(11, 11, 14, 0.16)',
+  },
+  tileIconBadge: {
+    position: 'absolute',
+    top: 5,
+    left: 5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(11, 11, 14, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  tileIconBadgeActive: {
+    backgroundColor: THEME.colors.gold,
+    borderColor: THEME.colors.gold,
+  },
+  tileSelectedDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+  },
+  tileTextContainer: {
+    paddingTop: 5,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+  },
+  tileName: {
     fontFamily: THEME.fonts.bold,
-    fontSize: 12.5,
+    fontSize: 11.5,
     color: THEME.colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: -0.1,
   },
-  catTextActive: {
-    color: '#FFFFFF',
+  tileNameSelected: {
+    color: THEME.colors.textPrimary,
+    fontFamily: THEME.fonts.extraBold,
+  },
+  tileSubtitle: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 9.5,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  tileActiveIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '25%',
+    right: '25%',
+    height: 2.5,
+    backgroundColor: THEME.colors.gold,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   reelsSection: {
     marginVertical: 14,
@@ -340,7 +548,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   reelOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   playIconBox: {

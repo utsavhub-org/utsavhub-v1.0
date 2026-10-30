@@ -16,14 +16,16 @@ import {
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const cleanEnv = (val?: string) => (!val || val.includes('your-') ? '' : val);
+
 export const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyBVF57PV6VcYT5Bz_2RCnQtn_6OwKsMrus",
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "utsavhub-71407.firebaseapp.com",
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "utsavhub-71407",
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "utsavhub-71407.firebasestorage.app",
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "567922322355",
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:567922322355:web:fb0a0e90f3fbcc270bf9c6",
-  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-613BCE0G4B"
+  apiKey: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_API_KEY) || "AIzaSyBVF57PV6VcYT5Bz_2RCnQtn_6OwKsMrus",
+  authDomain: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN) || "utsavhub-71407.firebaseapp.com",
+  projectId: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID) || "utsavhub-71407",
+  storageBucket: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET) || "utsavhub-71407.firebasestorage.app",
+  messagingSenderId: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || "567922322355",
+  appId: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_APP_ID) || "1:567922322355:web:fb0a0e90f3fbcc270bf9c6",
+  measurementId: cleanEnv(process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID) || "G-613BCE0G4B"
 };
 
 // Initialize Firebase App instance

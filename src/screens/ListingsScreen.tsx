@@ -16,12 +16,19 @@ import {
   Utensils,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  Building,
+  Flower2,
+  Camera,
+  Music,
+  Heart,
 } from 'lucide-react-native';
 import ShimmerSkeleton from '../components/ShimmerSkeleton';
 import ListingCard from '../components/ListingCard';
 import { getFilteredBusinesses } from '../lib/supabaseClient';
 import { Business } from '../types';
 import { THEME } from '../theme/colors';
+import { playTabPop, playButtonClick } from '../lib/soundManager';
 
 interface ListingsScreenProps {
   initialLocation?: string;
@@ -31,6 +38,16 @@ interface ListingsScreenProps {
   onBack: () => void;
   onSelectVendor: (id: string, date: string, guests: number) => void;
 }
+
+const EXPLORE_CATEGORIES = [
+  { id: 'all', label: 'All Services', icon: Sparkles },
+  { id: 'venue', label: 'AC Halls', icon: Building },
+  { id: 'decoration', label: 'Mandapam Decor', icon: Flower2 },
+  { id: 'catering', label: 'Catering', icon: Utensils },
+  { id: 'photography', label: 'Photography', icon: Camera },
+  { id: 'dj_sound', label: 'DJ & Sound', icon: Music },
+  { id: 'wishlist', label: 'Wishlist', icon: Heart },
+];
 
 export default function ListingsScreen({
   initialLocation = '',
@@ -77,7 +94,19 @@ export default function ListingsScreen({
           <ChevronLeft size={22} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle} numberOfLines={1}>
-          {category === 'wishlist' ? 'My Saved Wishlist' : 'Available Verified Listings'}
+          {category === 'wishlist'
+            ? 'My Saved Wishlist'
+            : category === 'venue'
+            ? 'AC Convention Halls'
+            : category === 'catering'
+            ? 'Royal Catering Services'
+            : category === 'decoration'
+            ? 'Mandapam & Stage Decor'
+            : category === 'photography'
+            ? 'Wedding Photography'
+            : category === 'dj_sound'
+            ? 'DJ, Sound & Band'
+            : 'Available Verified Listings'}
         </Text>
         <View style={{ width: 34 }} />
       </View>
@@ -127,33 +156,41 @@ export default function ListingsScreen({
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Category Pills (Horizontally Scrollable) */}
+        {/* Category Pills with Icons (Horizontally Scrollable) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
-          {[
-            { id: 'all', label: 'All Services' },
-            { id: 'venue', label: 'AC Halls' },
-            { id: 'catering', label: 'Catering' },
-            { id: 'decoration', label: 'Decor' },
-          ].map((cat) => (
-            <TouchableOpacity
-              key={cat.id}
-              style={[styles.catBtn, category === cat.id && styles.catBtnActive]}
-              onPress={() => setCategory(cat.id)}
-            >
-              <Text
-                style={[
-                  styles.catBtnText,
-                  category === cat.id && styles.catBtnTextActive,
-                ]}
+          {EXPLORE_CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = category === cat.id;
+
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[styles.catBtn, isSelected && styles.catBtnActive]}
+                onPress={() => {
+                  playTabPop();
+                  setCategory(cat.id);
+                }}
+                activeOpacity={0.75}
               >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Icon
+                  size={14}
+                  color={isSelected ? '#C5A059' : '#64748B'}
+                />
+                <Text
+                  style={[
+                    styles.catBtnText,
+                    isSelected && styles.catBtnTextActive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -303,18 +340,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   catBtn: {
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: THEME.colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   catBtnActive: {
-    backgroundColor: THEME.colors.accentDark,
+    backgroundColor: '#0B0B0E',
+    borderColor: '#0B0B0E',
   },
   catBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
   },
   catBtnTextActive: {
     color: '#FFFFFF',

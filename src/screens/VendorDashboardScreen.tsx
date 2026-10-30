@@ -36,6 +36,14 @@ import {
   RefreshCw,
   LogOut,
   UserCheck,
+  Utensils,
+  Flower2,
+  Eye,
+  EyeOff,
+  Layers,
+  FolderPlus,
+  SlidersHorizontal,
+  Edit,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -51,6 +59,12 @@ import {
   getVendorInquiries,
   updateInquiryStatus,
   DEFAULT_ADMIN_PERCENTAGE,
+  getVendorBusinesses,
+  toggleBusinessActive,
+  createVendorBusiness,
+  getCateringItems,
+  addCateringItem,
+  updateCateringItemNegotiablePrice,
 } from '../lib/supabaseClient';
 import {
   Business,
@@ -58,6 +72,7 @@ import {
   VendorDocPdf,
   MediaReel,
   BookingInquiry,
+  CateringItem,
 } from '../types';
 import ReelModal from '../components/ReelModal';
 import { THEME } from '../theme/colors';
@@ -76,7 +91,27 @@ export default function VendorDashboardScreen({
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pricing' | 'media' | 'inquiries'>('pricing');
+  const [activeTab, setActiveTab] = useState<'businesses' | 'catering' | 'pricing' | 'media' | 'inquiries'>('businesses');
+
+  // Multi-Business State
+  const [vendorBusinesses, setVendorBusinesses] = useState<Business[]>([]);
+  const [showAddBusinessModal, setShowAddBusinessModal] = useState(false);
+  const [newBizName, setNewBizName] = useState('');
+  const [newBizCategory, setNewBizCategory] = useState<'venue' | 'catering' | 'decoration' | 'photography'>('catering');
+  const [newBizCover, setNewBizCover] = useState('https://images.unsplash.com/photo-1555244162-803834f70033?w=800');
+
+  // Catering Items State
+  const [cateringItems, setCateringItems] = useState<CateringItem[]>([]);
+  const [showAddCateringModal, setShowAddCateringModal] = useState(false);
+  const [newCatItemName, setNewCatItemName] = useState('');
+  const [newCatItemCategory, setNewCatItemCategory] = useState<'starter' | 'curry' | 'rice' | 'sweet' | 'live_stall'>('sweet');
+  const [newCatItemIsVeg, setNewCatItemIsVeg] = useState(true);
+  const [newCatItemBasePrice, setNewCatItemBasePrice] = useState('75');
+  const [newCatItemNegotiatedPrice, setNewCatItemNegotiatedPrice] = useState('65');
+
+  // Edit Negotiated Price State
+  const [editingItem, setEditingItem] = useState<CateringItem | null>(null);
+  const [updatedNegotiatedPrice, setUpdatedNegotiatedPrice] = useState('');
 
   // Pricing State
   const [priceRequests, setPriceRequests] = useState<PriceUpdateRequest[]>([]);
@@ -112,12 +147,91 @@ export default function VendorDashboardScreen({
     const biz = await getBusinessById(businessId);
     setBusiness(biz);
 
+    const bizes = await getVendorBusinesses(currentUser?.phone || businessId);
+    setVendorBusinesses(bizes);
+
+    const catItems = await getCateringItems('33333333-3333-3333-3333-333333333333');
+    setCateringItems(catItems);
+
     const requests = await getPriceRequestsForBusiness(businessId);
     setPriceRequests(requests);
 
     const inqs = await getVendorInquiries(businessId);
     setInquiries(inqs);
     setLoading(false);
+  };
+
+  const handleToggleBusinessActive = async (bId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    await toggleBusinessActive(bId, newStatus);
+    setVendorBusinesses((prev) =>
+      prev.map((b) => (b.id === bId ? { ...b, is_active: newStatus } : b))
+    );
+  };
+
+  const handleCreateBusiness = async () => {
+    if (!newBizName.trim()) {
+      Alert.alert('Required', 'Please enter a business or service name.');
+      return;
+    }
+    const created = await createVendorBusiness({
+      name: newBizName.trim(),
+      category: newBizCategory,
+      cover_image_url: newBizCover,
+      city: currentUser?.selectedCity || 'Visakhapatnam',
+      phone: currentUser?.phone || '+91 98480 12345',
+      whatsapp_number: currentUser?.phone || '+91 98480 12345',
+    });
+    if (created) {
+      setVendorBusinesses((prev) => [created, ...prev]);
+      setShowAddBusinessModal(false);
+      setNewBizName('');
+      Alert.alert('Business Added', 'New business offering added and published to Supabase.');
+    }
+  };
+
+  const handleAddCateringItem = async () => {
+    if (!newCatItemName.trim()) {
+      Alert.alert('Required', 'Please enter the dish name.');
+      return;
+    }
+    const baseP = parseFloat(newCatItemBasePrice) || 50;
+    const negP = parseFloat(newCatItemNegotiatedPrice) || baseP;
+
+    const added = await addCateringItem({
+      business_id: '33333333-3333-3333-3333-333333333333',
+      category: newCatItemCategory,
+      item_name: newCatItemName.trim(),
+      is_veg: newCatItemIsVeg,
+      base_price_per_plate: baseP,
+      negotiable_price_per_plate: negP,
+      is_available: true,
+    });
+
+    if (added) {
+      setCateringItems((prev) => [added, ...prev]);
+      setShowAddCateringModal(false);
+      setNewCatItemName('');
+      Alert.alert('Menu Item Added', 'New item added to your catering menu.');
+    }
+  };
+
+  const handleSaveNegotiatedPrice = async () => {
+    if (!editingItem) return;
+    const priceNum = parseFloat(updatedNegotiatedPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      Alert.alert('Invalid Price', 'Please enter a valid negotiated price.');
+      return;
+    }
+
+    await updateCateringItemNegotiablePrice(editingItem.id, priceNum);
+    setCateringItems((prev) =>
+      prev.map((i) =>
+        i.id === editingItem.id ? { ...i, negotiable_price_per_plate: priceNum } : i
+      )
+    );
+    setEditingItem(null);
+    Alert.alert('Price Updated', 'Negotiated price after customer discussion has been saved.');
   };
 
   useEffect(() => {
@@ -299,15 +413,41 @@ export default function VendorDashboardScreen({
       </View>
 
       {/* Segmented Navigation Tabs */}
-      <View style={styles.tabNavContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabNavScroll}
+      >
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'businesses' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('businesses')}
+          activeOpacity={0.7}
+        >
+          <Layers size={15} color={activeTab === 'businesses' ? '#0F172A' : '#64748B'} />
+          <Text style={[styles.tabText, activeTab === 'businesses' && styles.tabTextActive]}>
+            My Businesses ({vendorBusinesses.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'catering' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('catering')}
+          activeOpacity={0.7}
+        >
+          <Utensils size={15} color={activeTab === 'catering' ? '#0F172A' : '#64748B'} />
+          <Text style={[styles.tabText, activeTab === 'catering' && styles.tabTextActive]}>
+            Menu & Decor
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'pricing' && styles.tabBtnActive]}
           onPress={() => setActiveTab('pricing')}
           activeOpacity={0.7}
         >
-          <DollarSign size={16} color={activeTab === 'pricing' ? '#0F172A' : '#64748B'} />
+          <DollarSign size={15} color={activeTab === 'pricing' ? '#0F172A' : '#64748B'} />
           <Text style={[styles.tabText, activeTab === 'pricing' && styles.tabTextActive]}>
-            Prices & Admin Fee
+            Pricing
           </Text>
         </TouchableOpacity>
 
@@ -316,7 +456,7 @@ export default function VendorDashboardScreen({
           onPress={() => setActiveTab('media')}
           activeOpacity={0.7}
         >
-          <Video size={16} color={activeTab === 'media' ? '#0F172A' : '#64748B'} />
+          <Video size={15} color={activeTab === 'media' ? '#0F172A' : '#64748B'} />
           <Text style={[styles.tabText, activeTab === 'media' && styles.tabTextActive]}>
             Reels, Pics & PDFs
           </Text>
@@ -327,18 +467,190 @@ export default function VendorDashboardScreen({
           onPress={() => setActiveTab('inquiries')}
           activeOpacity={0.7}
         >
-          <Calendar size={16} color={activeTab === 'inquiries' ? '#0F172A' : '#64748B'} />
+          <Calendar size={15} color={activeTab === 'inquiries' ? '#0F172A' : '#64748B'} />
           <Text style={[styles.tabText, activeTab === 'inquiries' && styles.tabTextActive]}>
             Holds ({inquiries.filter((i) => i.status === 'pending').length})
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Main Tab Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* ================================================================= */}
+        {/* TAB 0: MULTI-BUSINESS MANAGEMENT & VISIBILITY ORGANIZER          */}
+        {/* ================================================================= */}
+        {activeTab === 'businesses' && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionTitle}>My Businesses & Offerings</Text>
+                <Text style={styles.sectionSub}>
+                  Organize which businesses are publicly shown in search results
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.addPrimaryBtn}
+                onPress={() => setShowAddBusinessModal(true)}
+                activeOpacity={0.85}
+              >
+                <Plus size={15} color="#FFFFFF" />
+                <Text style={styles.addPrimaryBtnText}>Add Business</Text>
+              </TouchableOpacity>
+            </View>
+
+            {vendorBusinesses.map((b) => (
+              <View key={b.id} style={styles.businessCard}>
+                <Image source={{ uri: b.cover_image_url }} style={styles.bizCardImg} />
+                <View style={styles.bizCardBody}>
+                  <View style={styles.bizCardHeader}>
+                    <Text style={styles.bizCardTitle}>{b.name}</Text>
+                    <View style={styles.bizCategoryBadge}>
+                      <Text style={styles.bizCategoryText}>{b.category.toUpperCase()}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.bizCardLoc}>
+                    {b.area_locality}, {b.city}
+                  </Text>
+
+                  {/* Visibility Organizer Toggle */}
+                  <View style={styles.visibilityToggleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.visibilityLabel}>Listing Visibility:</Text>
+                      <Text
+                        style={[
+                          styles.visibilityStatus,
+                          b.is_active ? styles.statusActive : styles.statusHidden,
+                        ]}
+                      >
+                        {b.is_active ? 'Visible to Customers' : 'Hidden from Explore'}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.toggleBtn,
+                        b.is_active ? styles.toggleBtnActive : styles.toggleBtnInactive,
+                      ]}
+                      onPress={() => handleToggleBusinessActive(b.id, Boolean(b.is_active))}
+                      activeOpacity={0.8}
+                    >
+                      {b.is_active ? (
+                        <>
+                          <Eye size={14} color="#059669" />
+                          <Text style={styles.toggleBtnTextActive}>Active</Text>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff size={14} color="#64748B" />
+                          <Text style={styles.toggleBtnTextInactive}>Show</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB 0.5: ITEMIZED CATERING & DISCUSSION PRICING                   */}
+        {/* ================================================================= */}
+        {activeTab === 'catering' && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionTitle}>Catering Menu Items</Text>
+                <Text style={styles.sectionSub}>
+                  Itemized dishes with base & customizable negotiation prices
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.addPrimaryBtn}
+                onPress={() => setShowAddCateringModal(true)}
+                activeOpacity={0.85}
+              >
+                <Plus size={15} color="#FFFFFF" />
+                <Text style={styles.addPrimaryBtnText}>Add Dish</Text>
+              </TouchableOpacity>
+            </View>
+
+            {cateringItems.map((item) => (
+              <View key={item.id} style={styles.cateringItemCard}>
+                <View style={styles.catItemRow}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View
+                        style={[
+                          styles.vegIndicator,
+                          item.is_veg ? styles.vegGreen : styles.nonVegRed,
+                        ]}
+                      />
+                      <Text style={styles.catItemName}>{item.item_name}</Text>
+                    </View>
+                    <Text style={styles.catItemCategory}>
+                      Category: {item.category.toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.negotiatePriceBtn}
+                    onPress={() => {
+                      setEditingItem(item);
+                      setUpdatedNegotiatedPrice(
+                        String(item.negotiable_price_per_plate || item.base_price_per_plate)
+                      );
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Edit size={13} color={THEME.colors.goldDark} />
+                    <Text style={styles.negotiatePriceBtnText}>Adjust Price</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.catPricingRow}>
+                  <View style={styles.priceCol}>
+                    <Text style={styles.priceColLabel}>Standard Price</Text>
+                    <Text style={styles.priceColVal}>₹{item.base_price_per_plate}/plate</Text>
+                  </View>
+
+                  <View style={styles.priceCol}>
+                    <Text style={styles.priceColLabel}>Agreed / Discussed Price</Text>
+                    <Text style={styles.priceColValHighlight}>
+                      ₹{item.negotiable_price_per_plate || item.base_price_per_plate}/plate
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            {/* Modular Decor Elements Summary */}
+            <View style={{ marginTop: 24 }}>
+              <Text style={styles.sectionTitle}>Customizable Decor Packages</Text>
+              <Text style={styles.sectionSub}>
+                Modular stages, flower arches & haldi setups with flexible pricing
+              </Text>
+
+              {business?.decor_items?.map((dec) => (
+                <View key={dec.id} style={styles.cateringItemCard}>
+                  <View style={styles.catItemRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.catItemName}>{dec.title}</Text>
+                      <Text style={styles.catItemCategory}>
+                        {dec.flower_type || 'Fresh Florals'} • {dec.dimensions || 'Standard'}
+                      </Text>
+                    </View>
+                    <Text style={styles.priceColValHighlight}>₹{dec.base_price}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         {/* ================================================================= */}
         {/* TAB 1: PRICING & ADMIN PERCENTAGE APPROVAL WORKFLOW               */}
         {/* ================================================================= */}
@@ -1011,6 +1323,172 @@ export default function VendorDashboardScreen({
 
               <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddPdf} activeOpacity={0.8}>
                 <Text style={styles.modalSubmitBtnText}>Upload & Attach PDF</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add New Business Modal */}
+      <Modal visible={showAddBusinessModal} animationType="slide" transparent onRequestClose={() => setShowAddBusinessModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Add New Business</Text>
+                <Text style={styles.modalSub}>Post an additional offering under your vendor profile</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddBusinessModal(false)} style={styles.modalCloseBtn}>
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Business / Service Name</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={newBizName}
+                  onChangeText={setNewBizName}
+                  placeholder="e.g. Swarna Photography & Cinematic Films"
+                />
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Service Category</Text>
+              <View style={styles.typeSelectorRow}>
+                {(['venue', 'catering', 'decoration', 'photography'] as const).map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.typeBtn, newBizCategory === cat && styles.typeBtnActive]}
+                    onPress={() => setNewBizCategory(cat)}
+                  >
+                    <Text style={[styles.typeBtnText, newBizCategory === cat && styles.typeBtnTextActive]}>
+                      {cat.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Cover Photo URL</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={newBizCover}
+                  onChangeText={setNewBizCover}
+                  placeholder="https://..."
+                />
+              </View>
+
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleCreateBusiness} activeOpacity={0.8}>
+                <Text style={styles.modalSubmitBtnText}>Publish Business to Supabase</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Catering Item Modal */}
+      <Modal visible={showAddCateringModal} animationType="slide" transparent onRequestClose={() => setShowAddCateringModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Add Menu Dish</Text>
+                <Text style={styles.modalSub}>Itemize dishes and set standard + discussion prices</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddCateringModal(false)} style={styles.modalCloseBtn}>
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Dish / Item Name</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={newCatItemName}
+                  onChangeText={setNewCatItemName}
+                  placeholder="e.g. Gongura Mutton Dum Biryani"
+                />
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Dish Category</Text>
+              <View style={styles.typeSelectorRow}>
+                {(['sweet', 'starter', 'curry', 'rice', 'live_stall'] as const).map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.typeBtn, newCatItemCategory === c && styles.typeBtnActive]}
+                    onPress={() => setNewCatItemCategory(c)}
+                  >
+                    <Text style={[styles.typeBtnText, newCatItemCategory === c && styles.typeBtnTextActive]}>
+                      {c.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Standard Base Price (₹)</Text>
+                  <View style={styles.modalInputWrapper}>
+                    <TextInput
+                      style={styles.modalTextInput}
+                      value={newCatItemBasePrice}
+                      onChangeText={setNewCatItemBasePrice}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Negotiable Price (₹)</Text>
+                  <View style={styles.modalInputWrapper}>
+                    <TextInput
+                      style={styles.modalTextInput}
+                      value={newCatItemNegotiatedPrice}
+                      onChangeText={setNewCatItemNegotiatedPrice}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddCateringItem} activeOpacity={0.8}>
+                <Text style={styles.modalSubmitBtnText}>Add to Catering Menu</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Negotiated Price Modal (After discussion with customer) */}
+      <Modal visible={editingItem !== null} animationType="fade" transparent onRequestClose={() => setEditingItem(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Adjust Negotiated Price</Text>
+                <Text style={styles.modalSub}>{editingItem?.item_name}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.modalCloseBtn}>
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Agreed / Discussed Price per Plate (₹)</Text>
+              <View style={styles.modalInputWrapper}>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={updatedNegotiatedPrice}
+                  onChangeText={setUpdatedNegotiatedPrice}
+                  keyboardType="numeric"
+                  placeholder="Enter negotiated amount"
+                />
+              </View>
+
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleSaveNegotiatedPrice} activeOpacity={0.8}>
+                <Text style={styles.modalSubmitBtnText}>Save Negotiated Price to Supabase</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1835,6 +2313,218 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '900',
     color: '#0F172A',
+  },
+  tabNavScroll: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    paddingBottom: 20,
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  addPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: THEME.colors.accentDark,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  addPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  businessCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  bizCardImg: {
+    width: '100%',
+    height: 120,
+  },
+  bizCardBody: {
+    padding: 14,
+  },
+  bizCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bizCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flex: 1,
+  },
+  bizCategoryBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  bizCategoryText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  bizCardLoc: {
+    fontSize: 12.5,
+    color: '#64748B',
+    marginBottom: 10,
+  },
+  visibilityToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  visibilityLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  visibilityStatus: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  statusActive: {
+    color: '#059669',
+  },
+  statusHidden: {
+    color: '#94A3B8',
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  toggleBtnInactive: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  toggleBtnTextActive: {
+    color: '#059669',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  toggleBtnTextInactive: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cateringItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 10,
+  },
+  catItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  vegIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  vegGreen: {
+    backgroundColor: '#059669',
+  },
+  nonVegRed: {
+    backgroundColor: '#DC2626',
+  },
+  catItemName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  catItemCategory: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  negotiatePriceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAF6ED',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  negotiatePriceBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.goldDark,
+  },
+  catPricingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  priceCol: {
+    gap: 2,
+  },
+  priceColLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  priceColVal: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  priceColValHighlight: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#059669',
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, useWindowDimensions, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, useWindowDimensions, Platform, BackHandler } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Home, Compass, CalendarCheck, User, Building } from 'lucide-react-native';
@@ -18,13 +18,16 @@ import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthModal from './src/components/AuthModal';
+import AppOpeningIntro from './src/components/AppOpeningIntro';
 import { THEME } from './src/theme/colors';
+import { playTabPop, playButtonClick } from './src/lib/soundManager';
 
 type ScreenType = 'home' | 'listings' | 'bookings' | 'profile' | 'vendor';
 
 function MainNavigator() {
   const { userRole, currentUser, registerNavHandler } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
+  const [prevScreen, setPrevScreen] = useState<ScreenType>('home');
   const [activeTabNav, setActiveTabNav] = useState<'home' | 'explore' | 'bookings' | 'profile'>('home');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -35,6 +38,25 @@ function MainNavigator() {
       if (tab) setActiveTabNav(tab);
     });
   }, [registerNavHandler]);
+
+  // Android hardware & gesture back button handler
+  useEffect(() => {
+    const onBackPress = () => {
+      if (currentScreen === 'vendor') {
+        setCurrentScreen(prevScreen);
+        return true;
+      }
+      if (currentScreen !== 'home') {
+        setCurrentScreen('home');
+        setActiveTabNav('home');
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [currentScreen, prevScreen]);
 
   // Navigation state parameters
   const [navParams, setNavParams] = useState<{
@@ -62,6 +84,7 @@ function MainNavigator() {
   };
 
   const navigateToVendor = (vendorId: string, date?: string, guests?: number) => {
+    setPrevScreen(currentScreen);
     setNavParams((prev) => ({
       ...prev,
       vendorId,
@@ -84,7 +107,7 @@ function MainNavigator() {
         ]}
         edges={['top', 'left', 'right']}
       >
-        <StatusBar style="light" backgroundColor="#09090B" />
+        <StatusBar style="light" />
 
         <View style={styles.content}>
           {currentScreen === 'home' && (
@@ -134,7 +157,7 @@ function MainNavigator() {
               businessId={navParams.vendorId}
               initialDate={navParams.date}
               initialGuests={navParams.guests}
-              onBack={() => setCurrentScreen('listings')}
+              onBack={() => setCurrentScreen(prevScreen)}
             />
           )}
         </View>
@@ -148,6 +171,7 @@ function MainNavigator() {
             <TouchableOpacity
               style={styles.navItem}
               onPress={() => {
+                playTabPop();
                 setActiveTabNav('home');
                 setCurrentScreen('home');
               }}
@@ -171,6 +195,7 @@ function MainNavigator() {
             <TouchableOpacity
               style={styles.navItem}
               onPress={() => {
+                playTabPop();
                 setActiveTabNav('explore');
                 navigateToListings({ category: 'all' });
               }}
@@ -194,6 +219,7 @@ function MainNavigator() {
             <TouchableOpacity
               style={styles.navItem}
               onPress={() => {
+                playTabPop();
                 setActiveTabNav('bookings');
                 setCurrentScreen('bookings');
               }}
@@ -217,6 +243,7 @@ function MainNavigator() {
             <TouchableOpacity
               style={styles.navItem}
               onPress={() => {
+                playTabPop();
                 setActiveTabNav('profile');
                 setCurrentScreen('profile');
               }}
@@ -251,6 +278,7 @@ function MainNavigator() {
 }
 
 export default function App() {
+  const [showSplashIntro, setShowSplashIntro] = useState(true);
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -267,6 +295,9 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <MainNavigator />
+        {showSplashIntro && (
+          <AppOpeningIntro onAnimationFinish={() => setShowSplashIntro(false)} />
+        )}
       </AuthProvider>
     </SafeAreaProvider>
   );

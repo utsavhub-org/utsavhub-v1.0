@@ -30,7 +30,7 @@ interface MyBookingsScreenProps {
 const MOCK_BOOKINGS = [
   {
     id: 'UH-2026-8942',
-    vendorId: 'venue-1',
+    vendorId: '11111111-1111-1111-1111-111111111111',
     name: 'Sri Venkateswara Grand AC Hall',
     locality: 'Madhurawada, NH16 Highway',
     image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80',
@@ -45,7 +45,7 @@ const MOCK_BOOKINGS = [
   },
   {
     id: 'UH-2026-9104',
-    vendorId: 'venue-2',
+    vendorId: '22222222-2222-2222-2222-222222222222',
     name: 'Royal Orchid Mandapam & AC Convention',
     locality: 'Rushikonda Beach Road',
     image: 'https://images.unsplash.com/photo-1545232979-8bf68ee9b1af?auto=format&fit=crop&w=600&q=80',

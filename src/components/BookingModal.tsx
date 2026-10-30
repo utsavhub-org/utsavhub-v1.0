@@ -13,6 +13,7 @@ import {
 import { X, CheckCircle2, Phone, Sparkles, ShieldCheck } from 'lucide-react-native';
 import { Business } from '../types';
 import { createBookingInquiry } from '../lib/supabaseClient';
+import { playSuccessSound, playButtonClick } from '../lib/soundManager';
 
 interface BookingModalProps {
   visible: boolean;
@@ -62,6 +63,7 @@ export default function BookingModal({
       });
 
       if (res.success) {
+        playSuccessSound();
         setInquiryId(res.id);
         setIsSuccess(true);
       }
@@ -86,7 +88,7 @@ export default function BookingModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           {/* Header */}

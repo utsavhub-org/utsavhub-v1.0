@@ -15,9 +15,12 @@ export interface Business {
   phone: string;
   whatsapp_number: string;
   is_verified: boolean;
+  is_active?: boolean;
+  vendor_id?: string;
   venue_details?: VenueDetails;
   catering_packages?: CateringPackage[];
   catering_addons?: CateringAddon[];
+  catering_items?: CateringItem[];
   decor_catalogues?: DecorCatalogue[];
   decor_items?: DecorItem[];
   media_reels?: MediaReel[];
@@ -163,5 +166,48 @@ export interface BookingInquiry {
   final_customer_amount?: number;
   status: 'pending' | 'approved' | 'rejected' | 'completed';
   notes?: string;
+  created_at?: string;
+}
+
+export interface Review {
+  id: string;
+  booking_id: string;
+  business_id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+}
+
+export interface ReelComment {
+  id: string;
+  reel_id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  comment_text: string;
+  created_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  sender: 'user' | 'support' | 'vendor';
+  message: string;
+  created_at: string;
+}
+
+export interface CateringItem {
+  id: string;
+  business_id: string;
+  category: 'starter' | 'curry' | 'rice' | 'sweet' | 'bread' | 'live_stall' | 'beverage';
+  item_name: string;
+  is_veg: boolean;
+  base_price_per_plate: number;
+  negotiable_price_per_plate?: number;
+  is_available: boolean;
   created_at?: string;
 }

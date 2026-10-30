@@ -13,6 +13,8 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import {
   User,
   Heart,
@@ -34,11 +36,24 @@ import {
   Check,
   ShieldCheck,
   Briefcase,
+  Star,
+  Send,
+  Navigation,
+  Image as ImageIcon,
+  MessageSquare,
+  Lock,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import VendorDashboardScreen from './VendorDashboardScreen';
 import { THEME } from '../theme/colors';
-import { BusinessCategory, UserRole } from '../types';
+import { BusinessCategory, UserRole, Review, SupportMessage } from '../types';
+import {
+  canUserReviewBusiness,
+  submitReview,
+  getSupportMessages,
+  sendSupportMessage,
+  getBusinessReviews,
+} from '../lib/supabaseClient';
 
 interface ProfileScreenProps {
   onNavigateToWishlist: () => void;
@@ -103,6 +118,166 @@ export default function ProfileScreen({
   const [formPartnerName, setFormPartnerName] = useState('');
   const [formBusinessName, setFormBusinessName] = useState('');
   const [formBusinessCategory, setFormBusinessCategory] = useState<BusinessCategory>('venue');
+
+  // Location & Image Picker States
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationSuccessMsg, setLocationSuccessMsg] = useState<string | null>(null);
+
+  // Reviews State
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewEligibleBookingId, setReviewEligibleBookingId] = useState<string | null>(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [existingReviews, setExistingReviews] = useState<Review[]>([]);
+
+  // Support Chat State
+  const [isSupportChatOpen, setIsSupportChatOpen] = useState(false);
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [newSupportMsg, setNewSupportMsg] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
+
+  // Pick Image from Local Phone Gallery
+  const handlePickImageFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Please grant permission to choose photos from your device gallery.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const pickedUri = result.assets[0].uri;
+        setFormAvatar(pickedUri);
+        setSuccessToast('Profile picture selected from device gallery!');
+        setTimeout(() => setSuccessToast(null), 3000);
+      }
+    } catch (err: any) {
+      Alert.alert('Image Error', err.message || 'Could not pick image from device.');
+    }
+  };
+
+  // Detect GPS Location
+  const handleDetectLocation = async () => {
+    setIsLocating(true);
+    setLocationSuccessMsg(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission',
+          'Permission to access location was denied. You can manually select your city below.'
+        );
+        setIsLocating(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (geocode && geocode.length > 0) {
+        const place = geocode[0];
+        const cityCandidate = place.city || place.subregion || place.region || 'Visakhapatnam';
+        const areaCandidate = [place.name, place.district, place.street].filter(Boolean).join(', ');
+
+        setFormCity(cityCandidate);
+        if (areaCandidate) {
+          setFormArea(areaCandidate);
+        }
+
+        const fullLoc = `${cityCandidate}${areaCandidate ? ` - ${areaCandidate}` : ''}`;
+        setLocationSuccessMsg(`Detected: ${fullLoc}`);
+      }
+    } catch (e: any) {
+      console.warn('Location detection note:', e);
+      Alert.alert('Location Notice', 'Could not fetch current coordinates. Please select your city manually.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  // Check past booking eligibility for reviews
+  const handleOpenReviewsModal = async () => {
+    if (!currentUser) return;
+    const testBusinessId = '11111111-1111-1111-1111-111111111111';
+    const check = await canUserReviewBusiness(currentUser.id, testBusinessId);
+    if (check.canReview && check.bookingId) {
+      setReviewEligibleBookingId(check.bookingId);
+      const revs = await getBusinessReviews(testBusinessId);
+      setExistingReviews(revs);
+      setIsReviewModalOpen(true);
+    } else {
+      Alert.alert(
+        'Verified Bookings Only',
+        check.message ||
+          'Reviews on UtsavHub are exclusively reserved for families who have completed a verified venue booking to ensure 100% authentic ratings.'
+      );
+    }
+  };
+
+  const handlePostReview = async () => {
+    if (!reviewText.trim()) {
+      Alert.alert('Required', 'Please write a brief review of your experience.');
+      return;
+    }
+    if (!currentUser || !reviewEligibleBookingId) return;
+
+    setIsSubmittingReview(true);
+    const rev = await submitReview({
+      booking_id: reviewEligibleBookingId,
+      business_id: '11111111-1111-1111-1111-111111111111',
+      user_id: currentUser.id,
+      user_name: currentUser.name || 'Verified Family',
+      user_avatar: currentUser.avatar_url,
+      rating: reviewRating,
+      review_text: reviewText.trim(),
+    });
+
+    setIsSubmittingReview(false);
+    if (rev) {
+      setExistingReviews((prev) => [rev, ...prev]);
+      setReviewText('');
+      Alert.alert('Review Submitted', 'Thank you! Your verified rating is now live.');
+      setIsReviewModalOpen(false);
+    }
+  };
+
+  // Support Chat
+  const handleOpenSupportChat = async () => {
+    if (!currentUser) return;
+    setIsSupportChatOpen(true);
+    const msgs = await getSupportMessages(currentUser.id);
+    setSupportMessages(msgs);
+  };
+
+  const handleSendSupportMessage = async () => {
+    if (!newSupportMsg.trim() || !currentUser) return;
+    setIsSendingMsg(true);
+    const sent = await sendSupportMessage(
+      currentUser.id,
+      currentUser.name || 'Guest User',
+      newSupportMsg.trim(),
+      currentUser.role === 'vendor' ? 'vendor' : 'user'
+    );
+    setIsSendingMsg(false);
+    if (sent) {
+      setSupportMessages((prev) => [...prev, sent]);
+      setNewSupportMsg('');
+    }
+  };
 
   // Auto prompt setup modal if newly signed in with incomplete profile
   useEffect(() => {
@@ -398,6 +573,36 @@ export default function ProfileScreen({
 
         <TouchableOpacity
           style={styles.menuItem}
+          onPress={handleOpenSupportChat}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuIconCircle}>
+            <MessageSquare size={16} color={THEME.colors.gold} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuTitle}>Live Support & Inquiries Chat</Text>
+            <Text style={styles.menuSub}>Direct concierge assistance saved to Supabase</Text>
+          </View>
+          <ChevronRight size={16} color={THEME.colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handleOpenReviewsModal}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuIconCircle}>
+            <Star size={16} color={THEME.colors.gold} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuTitle}>Verified Past Booking Reviews</Text>
+            <Text style={styles.menuSub}>Rate venues & caterers you previously booked</Text>
+          </View>
+          <ChevronRight size={16} color={THEME.colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
           onPress={handleSupportWhatsApp}
           activeOpacity={0.7}
         >
@@ -547,6 +752,18 @@ export default function ProfileScreen({
                 </View>
               </View>
 
+              {/* Browse Photo from Local Device Gallery */}
+              <TouchableOpacity
+                style={styles.browseGalleryBtn}
+                onPress={handlePickImageFromGallery}
+                activeOpacity={0.85}
+              >
+                <ImageIcon size={18} color={THEME.colors.goldDark} />
+                <Text style={styles.browseGalleryBtnText}>
+                  Browse Photo From My Phone Gallery
+                </Text>
+              </TouchableOpacity>
+
               {/* Custom Image URL Option */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Or Enter Photo URL</Text>
@@ -620,9 +837,34 @@ export default function ProfileScreen({
                 </View>
               </View>
 
-              {/* Destination City Selection */}
+              {/* Destination City Selection with GPS Auto-Detect */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Wedding / Event City</Text>
+                <View style={styles.locationHeaderRow}>
+                  <Text style={styles.inputLabel}>Wedding / Event City</Text>
+                  <TouchableOpacity
+                    style={styles.detectLocationBtn}
+                    onPress={handleDetectLocation}
+                    disabled={isLocating}
+                    activeOpacity={0.8}
+                  >
+                    {isLocating ? (
+                      <ActivityIndicator size="small" color={THEME.colors.goldDark} />
+                    ) : (
+                      <>
+                        <Navigation size={13} color={THEME.colors.goldDark} />
+                        <Text style={styles.detectLocationBtnText}>Auto-Detect GPS</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {locationSuccessMsg && (
+                  <View style={styles.locationDetectedBadge}>
+                    <CheckCircle2 size={13} color="#059669" />
+                    <Text style={styles.locationDetectedText}>{locationSuccessMsg}</Text>
+                  </View>
+                )}
+
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -758,6 +1000,202 @@ export default function ProfileScreen({
                 )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ------------------------------------------------------------- */}
+      {/* VERIFIED PAST-BOOKING REVIEW MODAL                            */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        visible={isReviewModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsReviewModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <View style={styles.badgeVerifiedRow}>
+                  <ShieldCheck size={14} color="#059669" />
+                  <Text style={styles.badgeVerifiedText}>Verified Booking Review</Text>
+                </View>
+                <Text style={styles.modalTitle}>Rate Your Experience</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsReviewModalOpen(false)}
+                style={styles.closeModalBtn}
+              >
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollBody}
+            >
+              <Text style={styles.reviewSub}>
+                Only clients with completed or approved bookings can submit a review to ensure authenticity.
+              </Text>
+
+              {/* Star Rating Selector */}
+              <View style={styles.starRatingRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setReviewRating(star)}
+                    activeOpacity={0.7}
+                    style={{ padding: 4 }}
+                  >
+                    <Star
+                      size={32}
+                      color={star <= reviewRating ? '#EAB308' : '#CBD5E1'}
+                      fill={star <= reviewRating ? '#EAB308' : 'transparent'}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Review Text Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Your Feedback & Rating Comments</Text>
+                <TextInput
+                  style={[styles.textInput, { height: 95, textAlignVertical: 'top' }]}
+                  multiline
+                  numberOfLines={4}
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                  placeholder="Share details regarding AC cooling, hall ambiance, staff support or dining arrangements..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.saveProfileBtn}
+                onPress={handlePostReview}
+                disabled={isSubmittingReview}
+                activeOpacity={0.85}
+              >
+                {isSubmittingReview ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <CheckCircle2 size={18} color="#FFFFFF" />
+                    <Text style={styles.saveProfileBtnText}>
+                      Publish Verified Review
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* Past Reviews List */}
+              {existingReviews.length > 0 && (
+                <View style={{ marginTop: 24 }}>
+                  <Text style={styles.formSectionLabel}>PUBLISHED REVIEWS</Text>
+                  {existingReviews.map((rev) => (
+                    <View key={rev.id} style={styles.reviewItemCard}>
+                      <View style={styles.revHeader}>
+                        <Text style={styles.revAuthor}>{rev.user_name}</Text>
+                        <View style={styles.starsSmall}>
+                          {Array.from({ length: rev.rating }).map((_, i) => (
+                            <Star key={i} size={13} color="#EAB308" fill="#EAB308" />
+                          ))}
+                        </View>
+                      </View>
+                      <Text style={styles.revText}>{rev.review_text}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ------------------------------------------------------------- */}
+      {/* LIVE SUPPORT & CONCIERGE CHAT MODAL                           */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        visible={isSupportChatOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsSupportChatOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>UtsavHub Concierge</Text>
+                <Text style={styles.modalSub}>Ask anything about venues, decor, or muhurtham dates</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsSupportChatOpen(false)}
+                style={styles.closeModalBtn}
+              >
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Chat Messages */}
+            <ScrollView
+              style={{ flex: 1, paddingHorizontal: 16 }}
+              contentContainerStyle={{ paddingVertical: 12 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {supportMessages.map((m) => {
+                const isUser = m.sender === 'user' || m.user_id === currentUser.id;
+                return (
+                  <View
+                    key={m.id}
+                    style={[
+                      styles.chatBubbleContainer,
+                      isUser ? styles.chatBubbleRight : styles.chatBubbleLeft,
+                    ]}
+                  >
+                    {!isUser && <Text style={styles.chatAuthor}>{m.user_name || 'Concierge'}</Text>}
+                    <View
+                      style={[
+                        styles.chatBubble,
+                        isUser ? styles.chatBubbleUser : styles.chatBubbleSupport,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.chatBubbleText,
+                          isUser ? styles.chatBubbleTextUser : styles.chatBubbleTextSupport,
+                        ]}
+                      >
+                        {m.message}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Chat Input Bar */}
+            <View style={styles.chatInputRow}>
+              <TextInput
+                style={styles.chatTextInput}
+                value={newSupportMsg}
+                onChangeText={setNewSupportMsg}
+                placeholder="Type your question..."
+                placeholderTextColor="#94A3B8"
+              />
+              <TouchableOpacity
+                style={styles.chatSendBtn}
+                onPress={handleSendSupportMessage}
+                disabled={isSendingMsg || !newSupportMsg.trim()}
+                activeOpacity={0.8}
+              >
+                {isSendingMsg ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Send size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1326,5 +1764,189 @@ const styles = StyleSheet.create({
     fontFamily: THEME.fonts.bold,
     fontSize: 14.5,
     color: '#FFFFFF',
+  },
+  browseGalleryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAF6ED',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  browseGalleryBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12.5,
+    color: THEME.colors.goldDark,
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  detectLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAF6ED',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  detectLocationBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: THEME.colors.goldDark,
+  },
+  locationDetectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  locationDetectedText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#065F46',
+  },
+  badgeVerifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  badgeVerifiedText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#059669',
+  },
+  reviewSub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 12.5,
+    color: THEME.colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  starRatingRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    marginBottom: 16,
+    backgroundColor: THEME.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  reviewItemCard: {
+    backgroundColor: THEME.colors.surface,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    marginBottom: 10,
+  },
+  revHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  revAuthor: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12.5,
+    color: THEME.colors.textPrimary,
+  },
+  starsSmall: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  revText: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    lineHeight: 17,
+  },
+  chatBubbleContainer: {
+    marginBottom: 12,
+    maxWidth: '82%',
+  },
+  chatBubbleLeft: {
+    alignSelf: 'flex-start',
+  },
+  chatBubbleRight: {
+    alignSelf: 'flex-end',
+  },
+  chatAuthor: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 10.5,
+    color: THEME.colors.textMuted,
+    marginBottom: 2,
+    marginLeft: 4,
+  },
+  chatBubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  chatBubbleUser: {
+    backgroundColor: THEME.colors.accentDark,
+    borderBottomRightRadius: 4,
+  },
+  chatBubbleSupport: {
+    backgroundColor: '#F1F5F9',
+    borderBottomLeftRadius: 4,
+  },
+  chatBubbleText: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  chatBubbleTextUser: {
+    color: '#FFFFFF',
+  },
+  chatBubbleTextSupport: {
+    color: '#0F172A',
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.border,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+  },
+  chatTextInput: {
+    flex: 1,
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontFamily: THEME.fonts.regular,
+    fontSize: 13,
+    color: THEME.colors.textPrimary,
+  },
+  chatSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.accentDark,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

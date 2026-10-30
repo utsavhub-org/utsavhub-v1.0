@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MapPin, Heart, ChevronDown, User, Building } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { THEME } from '../theme/colors';
+import { playButtonClick, playTabPop } from '../lib/soundManager';
 
 interface HeaderProps {
   onPressLocation?: () => void;
@@ -55,7 +56,10 @@ export default function Header({
       <View style={styles.rightGroup}>
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={onPressWishlist}
+          onPress={() => {
+            playTabPop();
+            onPressWishlist?.();
+          }}
           activeOpacity={0.7}
           accessibilityLabel="Wishlist"
         >
@@ -70,6 +74,7 @@ export default function Header({
         <TouchableOpacity
           style={styles.roleAvatar}
           onPress={() => {
+            playButtonClick();
             if (isLoggedIn) {
               navigateTo('profile', 'profile');
             } else {
