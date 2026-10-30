@@ -37,6 +37,7 @@ import BookingModal from '../components/BookingModal';
 import CateringCalculator from '../components/CateringCalculator';
 import { getBusinessById } from '../lib/supabaseClient';
 import { Business, MediaReel } from '../types';
+import { THEME } from '../theme/colors';
 
 interface VendorDetailScreenProps {
   businessId: string;
@@ -310,45 +311,107 @@ export default function VendorDetailScreen({
         {/* Tab A: Mandapam & Decor Lookbook */}
         {activeTab === 'decor' && (
           <View style={styles.tabContent}>
-            {dCatalogues.map((item) => (
-              <View key={item.id} style={styles.decorCard}>
-                <Image
-                  source={{ uri: item.sample_images[0] || business.cover_image_url }}
-                  style={styles.decorImage}
-                />
-                <View style={styles.decorBody}>
-                  <View style={styles.decorTopRow}>
-                    <Text style={styles.decorTitle}>{item.title}</Text>
-                    <Text style={styles.decorPrice}>₹{item.base_price.toLocaleString('en-IN')}</Text>
-                  </View>
-                  <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
+            {/* Modular Decor Elements: Mandapams, Wayworks, Haldi/Mehendi */}
+            {business.decor_items && business.decor_items.length > 0 && (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={styles.sectionSubHeader}>
+                  MODULAR DECOR ELEMENTS & WAYWORKS ({business.decor_items.length})
+                </Text>
+                {business.decor_items.map((item) => (
+                  <View key={item.id} style={styles.decorCard}>
+                    <Image
+                      source={{ uri: item.sample_images[0] || business.cover_image_url }}
+                      style={styles.decorImage}
+                    />
+                    <View style={styles.decorBody}>
+                      <View style={styles.decorTypeBadge}>
+                        <Text style={styles.decorTypeBadgeText}>
+                          {item.element_type === 'mandapam' && 'MANDAPAM STAGE'}
+                          {item.element_type === 'wayworks_entrance' && 'WAYWORKS / ENTRY TUNNEL'}
+                          {item.element_type === 'haldi_mehendi' && 'HALDI / MEHENDI JHULA'}
+                          {item.element_type === 'reception_backdrop' && 'RECEPTION BACKDROP'}
+                          {item.element_type === 'lighting_fx' && 'LIGHTING & FX'}
+                        </Text>
+                      </View>
 
-                  <View style={styles.decorBtnRow}>
-                    <TouchableOpacity
-                      style={styles.lookbookBtn}
-                      onPress={() => {
-                        Linking.openURL(item.lookbook_pdf_url);
-                      }}
-                    >
-                      <FileText size={13} color="#B89324" />
-                      <Text style={styles.lookbookBtnText}>View PDF Lookbook</Text>
-                    </TouchableOpacity>
+                      <View style={styles.decorTopRow}>
+                        <Text style={styles.decorTitle}>{item.title}</Text>
+                        <Text style={styles.decorPrice}>₹{item.base_price.toLocaleString('en-IN')}</Text>
+                      </View>
+                      {item.dimensions && (
+                        <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
+                      )}
+                      {item.flower_type && (
+                        <Text style={styles.decorFlowerText}>Flowers: {item.flower_type}</Text>
+                      )}
 
-                    <TouchableOpacity
-                      style={styles.decorWaBtn}
-                      onPress={() => {
-                        const cleanNum = business.whatsapp_number.replace(/\D/g, '');
-                        const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20mandapam%20${encodeURIComponent(item.title)}`;
-                        Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
-                      }}
-                    >
-                      <MessageCircle size={13} color="#FFFFFF" />
-                      <Text style={styles.decorWaBtnText}>Inquire</Text>
-                    </TouchableOpacity>
+                      <View style={styles.decorBtnRow}>
+                        <TouchableOpacity
+                          style={styles.decorWaBtn}
+                          onPress={() => {
+                            const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                            const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20${encodeURIComponent(item.title)}%20(${item.element_type})`;
+                            Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                          }}
+                        >
+                          <MessageCircle size={13} color="#FFFFFF" />
+                          <Text style={styles.decorWaBtnText}>Inquire for this Setup</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
-                </View>
+                ))}
               </View>
-            ))}
+            )}
+
+            {dCatalogues.length > 0 && (
+              <View>
+                {business.decor_items && business.decor_items.length > 0 && (
+                  <Text style={[styles.sectionSubHeader, { marginTop: 8 }]}>
+                    COMPLETE THEME LOOKBOOKS & CATALOGUES
+                  </Text>
+                )}
+                {dCatalogues.map((item) => (
+                  <View key={item.id} style={styles.decorCard}>
+                    <Image
+                      source={{ uri: item.sample_images[0] || business.cover_image_url }}
+                      style={styles.decorImage}
+                    />
+                    <View style={styles.decorBody}>
+                      <View style={styles.decorTopRow}>
+                        <Text style={styles.decorTitle}>{item.title}</Text>
+                        <Text style={styles.decorPrice}>₹{item.base_price.toLocaleString('en-IN')}</Text>
+                      </View>
+                      <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
+
+                      <View style={styles.decorBtnRow}>
+                        <TouchableOpacity
+                          style={styles.lookbookBtn}
+                          onPress={() => {
+                            Linking.openURL(item.lookbook_pdf_url);
+                          }}
+                        >
+                          <FileText size={13} color="#B89324" />
+                          <Text style={styles.lookbookBtnText}>View PDF Lookbook</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.decorWaBtn}
+                          onPress={() => {
+                            const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                            const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20mandapam%20${encodeURIComponent(item.title)}`;
+                            Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                          }}
+                        >
+                          <MessageCircle size={13} color="#FFFFFF" />
+                          <Text style={styles.decorWaBtnText}>Inquire</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -727,6 +790,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
   },
+  sectionSubHeader: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  decorTypeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: THEME.colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  decorTypeBadgeText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 9.5,
+    color: THEME.colors.goldDark,
+    letterSpacing: 0.6,
+  },
+  decorFlowerText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    marginBottom: 10,
+  },
   decorCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -883,28 +974,33 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   stickyAmount: {
+    fontFamily: THEME.fonts.extraBold,
     fontSize: 20,
-    fontWeight: '900',
-    color: '#1E293B',
+    color: THEME.colors.textPrimary,
     marginTop: 2,
   },
   stickySubText: {
+    fontFamily: THEME.fonts.regular,
     fontSize: 12,
-    fontWeight: '400',
     color: '#64748B',
   },
   bookBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    backgroundColor: THEME.colors.accentDark,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
     borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   bookBtnText: {
+    fontFamily: THEME.fonts.bold,
     color: '#FFFFFF',
     fontSize: 14.5,
-    fontWeight: '800',
   },
 });

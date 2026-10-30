@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react-native';
+import { THEME } from '../theme/colors';
 
 interface MyBookingsScreenProps {
   onExploreMore: () => void;
@@ -277,8 +278,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   tabBtnActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: THEME.colors.accentDark,
+    borderColor: THEME.colors.accentDark,
   },
   tabBtnText: {
     fontSize: 12.5,
@@ -287,6 +288,7 @@ const styles = StyleSheet.create({
   },
   tabBtnTextActive: {
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   scrollList: {
     flex: 1,
@@ -296,10 +298,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.25)',
     marginBottom: 16,
-    shadowColor: '#0F172A',
+    shadowColor: '#0B0B0F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -385,9 +387,9 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   amountText: {
+    fontFamily: THEME.fonts.extraBold,
     fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
+    color: THEME.colors.textPrimary,
   },
   amountSub: {
     fontSize: 11.5,

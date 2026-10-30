@@ -12,6 +12,7 @@ import {
 import { Video, ResizeMode } from 'expo-av';
 import { X, Volume2, VolumeX, Play, MessageCircle, MapPin, Sparkles } from 'lucide-react-native';
 import { MediaReel, Business } from '../types';
+import { THEME } from '../theme/colors';
 
 interface ReelModalProps {
   visible: boolean;
@@ -228,7 +229,9 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#D4AF37',
+    backgroundColor: THEME.colors.burgundy,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,

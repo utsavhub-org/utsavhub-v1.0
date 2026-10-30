@@ -17,9 +17,11 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react-native';
+import ShimmerSkeleton from '../components/ShimmerSkeleton';
 import ListingCard from '../components/ListingCard';
 import { getFilteredBusinesses } from '../lib/supabaseClient';
 import { Business } from '../types';
+import { THEME } from '../theme/colors';
 
 interface ListingsScreenProps {
   initialLocation?: string;
@@ -188,10 +190,7 @@ export default function ListingsScreen({
         </View>
 
         {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#D4AF37" />
-            <Text style={styles.loadingText}>Syncing live availability...</Text>
-          </View>
+          <ShimmerSkeleton count={3} />
         ) : businesses.length > 0 ? (
           businesses.map((biz) => (
             <ListingCard
@@ -235,12 +234,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: THEME.colors.border,
   },
   backBtn: {
     padding: 6,
@@ -249,28 +248,26 @@ const styles = StyleSheet.create({
   topBarTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: THEME.colors.textPrimary,
     marginHorizontal: 4,
   },
   filterBar: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 9,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: THEME.colors.border,
   },
   filterScroll: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 8,
   },
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
+    backgroundColor: THEME.colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
@@ -278,33 +275,30 @@ const styles = StyleSheet.create({
   activePillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#92400E',
+    color: THEME.colors.textPrimary,
   },
   toggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: THEME.colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
   },
   toggleBtnActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: THEME.colors.accentDark,
   },
   toggleText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: THEME.colors.textSecondary,
   },
   toggleTextActive: {
     color: '#FFFFFF',
   },
   categoryScroll: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 8,
     marginTop: 8,
   },
@@ -312,10 +306,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: THEME.colors.surface,
   },
   catBtnActive: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: THEME.colors.accentDark,
   },
   catBtnText: {
     fontSize: 12.5,
@@ -405,15 +399,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   resetBtn: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: THEME.colors.accentDark,
     paddingHorizontal: 18,
     paddingVertical: 11,
     borderRadius: 14,
     marginTop: 10,
   },
   resetBtnText: {
+    fontFamily: THEME.fonts.bold,
     color: '#FFFFFF',
     fontSize: 13.5,
-    fontWeight: '700',
   },
 });

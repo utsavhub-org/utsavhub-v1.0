@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Animated,
 } from 'react-native';
-import { MapPin, Calendar, Users, Search, Sparkles, Check, ChevronDown, X } from 'lucide-react-native';
+import { MapPin, Calendar, Users, Search, ChevronRight, X, Check } from 'lucide-react-native';
+import MuhurthamCalendar, { HINDU_MUHURTHAMS } from './MuhurthamCalendar';
+import { THEME } from '../theme/colors';
 
 const LOCALITIES = [
   'Visakhapatnam (All Areas)',
@@ -21,31 +22,26 @@ const LOCALITIES = [
 ];
 
 const DATES = [
-  { label: 'Nov 20, 2026 (Auspicious)', value: '2026-11-20' },
-  { label: 'Dec 14, 2026 (Peak Muhurtham)', value: '2026-12-14' },
-  { label: 'Dec 25, 2026 (Holiday Season)', value: '2026-12-25' },
-  { label: 'Jan 15, 2027 (Sankranti Auspicious)', value: '2027-01-15' },
+  { label: 'Nov 20, 2026', sub: 'Auspicious Muhurtham', value: '2026-11-20' },
+  { label: 'Dec 14, 2026', sub: 'Peak Winter Muhurtham', value: '2026-12-14' },
+  { label: 'Dec 25, 2026', sub: 'Holiday Season', value: '2026-12-25' },
+  { label: 'Jan 15, 2027', sub: 'Sankranti Auspicious', value: '2027-01-15' },
 ];
 
-const GUEST_OPTIONS = [
-  { label: '50-100', value: 100 },
-  { label: '100-300', value: 300 },
-  { label: '300-500', value: 500 },
-  { label: '500-1000', value: 800 },
-  { label: '1000+', value: 1200 },
-];
+const GUEST_OPTIONS = [150, 300, 500, 800, 1200];
 
 interface SearchCardProps {
   onSearch: (params: { location: string; date: string; guests: number }) => void;
 }
 
 export default function SearchCard({ onSearch }: SearchCardProps) {
-  const [location, setLocation] = useState('Visakhapatnam (All Areas)');
+  const [location, setLocation] = useState('Visakhapatnam');
   const [selectedDate, setSelectedDate] = useState('2026-11-20');
   const [selectedGuests, setSelectedGuests] = useState<number>(300);
 
   const [localityModalVisible, setLocalityModalVisible] = useState(false);
   const [dateModalVisible, setDateModalVisible] = useState(false);
+  const [guestModalVisible, setGuestModalVisible] = useState(false);
 
   const handleSearchPress = () => {
     const cleanLoc = location.replace(' (All Areas)', '');
@@ -56,135 +52,104 @@ export default function SearchCard({ onSearch }: SearchCardProps) {
     });
   };
 
-  const buttonScale = React.useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(buttonScale, {
-      toValue: 0.96,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(buttonScale, {
-      toValue: 1,
-      friction: 4,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const selectedDateLabel =
-    DATES.find((d) => d.value === selectedDate)?.label || selectedDate;
+  const currentMuhurtham = HINDU_MUHURTHAMS[selectedDate];
+  const dateFormatted = new Date(selectedDate).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   return (
-    <View style={styles.card}>
-      {/* Field 1: Locality */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>EVENT LOCALITY</Text>
-        <TouchableOpacity
-          style={styles.inputBox}
-          onPress={() => setLocalityModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.inputLeft}>
-            <MapPin size={16} color="#D4AF37" />
-            <Text style={styles.inputText} numberOfLines={1}>
-              {location}
-            </Text>
-          </View>
-          <ChevronDown size={16} color="#64748B" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Field 2: Date */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>EVENT DATE (MUHURTHAM)</Text>
-        <TouchableOpacity
-          style={styles.inputBox}
-          onPress={() => setDateModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.inputLeft}>
-            <Calendar size={16} color="#D4AF37" />
-            <Text style={styles.inputText} numberOfLines={1}>
-              {selectedDateLabel}
-            </Text>
-          </View>
-          <ChevronDown size={16} color="#64748B" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Field 3: Guest Capacity Quick Chips */}
-      <View style={styles.fieldContainer}>
-        <Text style={styles.fieldLabel}>EXPECTED GUEST COUNT</Text>
-        <View style={styles.chipsRow}>
-          {GUEST_OPTIONS.map((opt) => {
-            const isSelected = selectedGuests === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.label}
-                onPress={() => setSelectedGuests(opt.value)}
-                style={[
-                  styles.chip,
-                  isSelected && styles.chipSelected,
-                ]}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    isSelected && styles.chipTextSelected,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+    <View style={styles.cardContainer}>
+      {/* Segment 1: Where */}
+      <TouchableOpacity
+        style={styles.searchRow}
+        onPress={() => setLocalityModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.iconBox}>
+          <MapPin size={16} color={THEME.colors.textPrimary} />
         </View>
-      </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowLabel}>WHERE</Text>
+          <Text style={styles.rowValue} numberOfLines={1}>{location}</Text>
+        </View>
+        <ChevronRight size={16} color={THEME.colors.textMuted} />
+      </TouchableOpacity>
 
-      {/* Search CTA Button with Spring Micro-Animation */}
-      <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleSearchPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={0.9}
-        >
-          <Search size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.searchButtonText}>
-            Search Available Venues & Services
+      <View style={styles.divider} />
+
+      {/* Segment 2: When */}
+      <TouchableOpacity
+        style={styles.searchRow}
+        onPress={() => setDateModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.iconBox}>
+          <Calendar size={16} color={THEME.colors.textPrimary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowLabel}>WHEN</Text>
+          <Text style={styles.rowValue} numberOfLines={1}>
+            {dateFormatted}
+            {currentMuhurtham ? ` · ${currentMuhurtham.name}` : ''}
           </Text>
-        </TouchableOpacity>
-      </Animated.View>
+        </View>
+        <ChevronRight size={16} color={THEME.colors.textMuted} />
+      </TouchableOpacity>
 
-      {/* Locality Selector Modal */}
-      <Modal visible={localityModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+      <View style={styles.divider} />
+
+      {/* Segment 3: Guests */}
+      <TouchableOpacity
+        style={styles.searchRow}
+        onPress={() => setGuestModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.iconBox}>
+          <Users size={16} color={THEME.colors.textPrimary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowLabel}>GUESTS</Text>
+          <Text style={styles.rowValue}>{selectedGuests} Guests Capacity</Text>
+        </View>
+        <ChevronRight size={16} color={THEME.colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* Primary Search CTA */}
+      <TouchableOpacity
+        style={styles.searchBtn}
+        onPress={handleSearchPress}
+        activeOpacity={0.85}
+      >
+        <Search size={16} color="#FFFFFF" />
+        <Text style={styles.searchBtnText}>Search Venues & Vendors</Text>
+      </TouchableOpacity>
+
+      {/* Locality Modal */}
+      <Modal visible={localityModalVisible} transparent animationType="fade" onRequestClose={() => setLocalityModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Event Locality</Text>
+              <Text style={styles.modalTitle}>Select Destination</Text>
               <TouchableOpacity onPress={() => setLocalityModalVisible(false)}>
-                <X size={20} color="#64748B" />
+                <X size={18} color={THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: 350 }}>
+            <ScrollView style={{ maxHeight: 320 }}>
               {LOCALITIES.map((loc) => (
                 <TouchableOpacity
                   key={loc}
-                  style={styles.modalItem}
+                  style={styles.modalRow}
                   onPress={() => {
                     setLocation(loc);
                     setLocalityModalVisible(false);
                   }}
                 >
-                  <Text style={[styles.modalItemText, location === loc && styles.modalItemActive]}>
+                  <Text style={[styles.modalRowText, location === loc && styles.modalRowActive]}>
                     {loc}
                   </Text>
-                  {location === loc && <Check size={16} color="#D4AF37" />}
+                  {location === loc && <Check size={16} color={THEME.colors.textPrimary} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -192,36 +157,54 @@ export default function SearchCard({ onSearch }: SearchCardProps) {
         </View>
       </Modal>
 
-      {/* Date Selector Modal */}
-      <Modal visible={dateModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+      {/* Interactive Hindu Muhurtham Calendar Modal */}
+      <Modal
+        visible={dateModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDateModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { padding: 0, overflow: 'hidden', maxWidth: 440 }]}>
+            <MuhurthamCalendar
+              initialDate={selectedDate}
+              onSelectDate={(date) => {
+                setSelectedDate(date);
+                setDateModalVisible(false);
+              }}
+              onClose={() => setDateModalVisible(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Guests Modal */}
+      <Modal visible={guestModalVisible} transparent animationType="fade" onRequestClose={() => setGuestModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Auspicious Muhurtham</Text>
-              <TouchableOpacity onPress={() => setDateModalVisible(false)}>
-                <X size={20} color="#64748B" />
+              <Text style={styles.modalTitle}>Guest Capacity</Text>
+              <TouchableOpacity onPress={() => setGuestModalVisible(false)}>
+                <X size={18} color={THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: 350 }}>
-              {DATES.map((d) => (
+            <View style={{ gap: 8, paddingVertical: 8 }}>
+              {GUEST_OPTIONS.map((num) => (
                 <TouchableOpacity
-                  key={d.value}
-                  style={styles.modalItem}
+                  key={num}
+                  style={styles.modalRow}
                   onPress={() => {
-                    setSelectedDate(d.value);
-                    setDateModalVisible(false);
+                    setSelectedGuests(num);
+                    setGuestModalVisible(false);
                   }}
                 >
-                  <View>
-                    <Text style={[styles.modalItemText, selectedDate === d.value && styles.modalItemActive]}>
-                      {d.label}
-                    </Text>
-                    <Text style={styles.modalSubText}>Date: {d.value}</Text>
-                  </View>
-                  {selectedDate === d.value && <Check size={16} color="#D4AF37" />}
+                  <Text style={[styles.modalRowText, selectedGuests === num && styles.modalRowActive]}>
+                    {num} Guests
+                  </Text>
+                  {selectedGuests === num && <Check size={16} color={THEME.colors.textPrimary} />}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -230,185 +213,117 @@ export default function SearchCard({ onSearch }: SearchCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
-    marginHorizontal: 12,
-    marginVertical: 10,
+    borderRadius: 22,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  bannerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFFBEB',
-    padding: 9,
-    borderRadius: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-  },
-  bannerIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  bannerTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#92400E',
-    letterSpacing: 0.5,
-  },
-  bannerSubtitle: {
-    fontSize: 11.5,
-    color: '#78350F',
-    marginTop: 2,
-  },
-  fieldContainer: {
-    marginBottom: 14,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.6,
-    marginBottom: 6,
-  },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  inputLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
-  },
-  inputText: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: '#0F172A',
-    flex: 1,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    minWidth: 62,
-  },
-  chipSelected: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#D4AF37',
-  },
-  chipText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  searchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#D4AF37',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    marginTop: 8,
-    shadowColor: '#D4AF37',
+    borderColor: THEME.colors.border,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  searchButtonText: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: THEME.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowLabel: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  rowValue: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 14,
+    color: THEME.colors.textPrimary,
+    marginTop: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: THEME.colors.border,
+    marginHorizontal: 12,
+  },
+  searchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: THEME.colors.accentDark,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  searchBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 14,
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
-    flexShrink: 1,
+    letterSpacing: 0.2,
   },
-  modalOverlay: {
+  modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: 24,
   },
-  modalContent: {
+  modalCard: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderRadius: 20,
     padding: 20,
-    maxWidth: 480,
-    width: '100%',
+    maxWidth: 420,
     alignSelf: 'center',
+    width: '100%',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingBottom: 10,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: THEME.colors.border,
+    marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontFamily: THEME.fonts.bold,
+    fontSize: 16,
+    color: THEME.colors.textPrimary,
   },
-  modalItem: {
+  modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
   },
-  modalItemText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#334155',
+  modalRowText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
   },
-  modalItemActive: {
-    color: '#B89324',
-    fontWeight: '700',
+  modalRowActive: {
+    fontFamily: THEME.fonts.bold,
+    color: THEME.colors.textPrimary,
   },
-  modalSubText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 3,
+  modalRowSub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
   },
 });

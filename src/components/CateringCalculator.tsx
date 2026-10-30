@@ -25,23 +25,46 @@ export default function CateringCalculator({
 }: CateringCalculatorProps) {
   const [selectedPkgId, setSelectedPkgId] = useState<string>(packages[0]?.id || '');
   const [guests, setGuests] = useState<number>(defaultGuests);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
 
   const currentPkg = packages.find((p) => p.id === selectedPkgId) || packages[0];
-  const pricePerPlate = currentPkg ? currentPkg.price_per_plate : 450;
+  const addons = business.catering_addons || [];
+
+  const extraPerPlate = addons
+    .filter((a) => selectedAddonIds.includes(a.id))
+    .reduce((sum, a) => sum + a.price_per_plate_extra, 0);
+
+  const basePricePerPlate = currentPkg ? currentPkg.price_per_plate : 450;
+  const pricePerPlate = basePricePerPlate + extraPerPlate;
   const total = guests * pricePerPlate;
+
+  const toggleAddon = (id: string) => {
+    const updated = selectedAddonIds.includes(id)
+      ? selectedAddonIds.filter((x) => x !== id)
+      : [...selectedAddonIds, id];
+    setSelectedAddonIds(updated);
+
+    const newExtra = addons
+      .filter((a) => updated.includes(a.id))
+      .reduce((sum, a) => sum + a.price_per_plate_extra, 0);
+
+    if (onTotalChange && currentPkg) {
+      onTotalChange(guests * (currentPkg.price_per_plate + newExtra), currentPkg.package_name);
+    }
+  };
 
   const handleSlider = (val: number) => {
     const rounded = Math.round(val / 25) * 25;
     setGuests(rounded);
     if (onTotalChange && currentPkg) {
-      onTotalChange(rounded * currentPkg.price_per_plate, currentPkg.package_name);
+      onTotalChange(rounded * pricePerPlate, currentPkg.package_name);
     }
   };
 
   const handleSelectPkg = (pkg: CateringPackage) => {
     setSelectedPkgId(pkg.id);
     if (onTotalChange) {
-      onTotalChange(guests * pkg.price_per_plate, pkg.package_name);
+      onTotalChange(guests * (pkg.price_per_plate + extraPerPlate), pkg.package_name);
     }
   };
 
@@ -155,6 +178,42 @@ export default function CateringCalculator({
           </View>
         </View>
       </View>
+
+      {/* Optional Live Stalls & Add-ons (Customer Freedom) */}
+      {addons.length > 0 && (
+        <View style={styles.addonsBox}>
+          <Text style={styles.sectionLabel}>ADD-ON LIVE STALLS & COUNTERS</Text>
+          <View style={{ gap: 8 }}>
+            {addons.map((addon) => {
+              const isChecked = selectedAddonIds.includes(addon.id);
+              return (
+                <TouchableOpacity
+                  key={addon.id}
+                  style={[styles.addonRow, isChecked && styles.addonRowActive]}
+                  onPress={() => toggleAddon(addon.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isChecked && styles.checkboxActive]}>
+                    {isChecked && <Check size={12} color="#FFFFFF" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.addonTitle, isChecked && styles.addonTitleActive]}>
+                      {addon.stall_name}
+                    </Text>
+                    {addon.description && (
+                      <Text style={styles.addonDesc}>{addon.description}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.addonPrice}>
+                    +₹{addon.price_per_plate_extra}
+                    <Text style={styles.addonPriceSub}>/pax</Text>
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* Itemized Dish Highlights */}
       {currentPkg && currentPkg.menu_highlights && (
@@ -373,6 +432,60 @@ const styles = StyleSheet.create({
   },
   menuBox: {
     marginBottom: 16,
+  },
+  addonsBox: {
+    marginBottom: 16,
+  },
+  addonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  addonRowActive: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxActive: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  addonTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  addonTitleActive: {
+    color: '#0F172A',
+  },
+  addonDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  addonPrice: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#D4AF37',
+  },
+  addonPriceSub: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: '#64748B',
   },
   dishList: {
     gap: 6,

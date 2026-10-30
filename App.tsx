@@ -1,21 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Home, Compass, CalendarCheck, User } from 'lucide-react-native';
+import { Home, Compass, CalendarCheck, User, Building } from 'lucide-react-native';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import HomeScreen from './src/screens/HomeScreen';
 import ListingsScreen from './src/screens/ListingsScreen';
 import VendorDetailScreen from './src/screens/VendorDetailScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+import AuthModal from './src/components/AuthModal';
+import { THEME } from './src/theme/colors';
 
 type ScreenType = 'home' | 'listings' | 'bookings' | 'profile' | 'vendor';
 
 function MainNavigator() {
+  const { userRole, currentUser, registerNavHandler } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [activeTabNav, setActiveTabNav] = useState<'home' | 'explore' | 'bookings' | 'profile'>('home');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+
+  useEffect(() => {
+    registerNavHandler((screen, tab) => {
+      setCurrentScreen(screen);
+      if (tab) setActiveTabNav(tab);
+    });
+  }, [registerNavHandler]);
 
   // Navigation state parameters
   const [navParams, setNavParams] = useState<{
@@ -52,12 +71,20 @@ function MainNavigator() {
     setCurrentScreen('vendor');
   };
 
+  const isTablet = width >= 768;
   const isWide = width > 520;
 
   return (
     <View style={[styles.outerContainer, isWide && styles.outerContainerWide]}>
-      <SafeAreaView style={[styles.container, isWide && styles.containerWide]} edges={['top', 'left', 'right']}>
-        <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      <SafeAreaView
+        style={[
+          styles.container,
+          isWide && styles.containerWide,
+          isTablet && styles.containerTablet,
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style="light" backgroundColor="#09090B" />
 
         <View style={styles.content}>
           {currentScreen === 'home' && (
@@ -98,6 +125,7 @@ function MainNavigator() {
                 setCurrentScreen('bookings');
               }}
               onNavigateToExplore={() => navigateToListings({ category: 'all' })}
+              onSelectVendor={navigateToVendor}
             />
           )}
 
@@ -111,7 +139,10 @@ function MainNavigator() {
           )}
         </View>
 
-        {/* Bottom Tab Navigation Bar (1. Home, 2. Explore, 3. My Bookings, 4. Profile) */}
+        {/* Global Auth Modal */}
+        <AuthModal />
+
+        {/* Bottom Tab Navigation Bar (1. Home, 2. Explore, 3. My Bookings, 4. Profile / Vendor Portal) */}
         {currentScreen !== 'vendor' && (
           <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TouchableOpacity
@@ -124,7 +155,7 @@ function MainNavigator() {
             >
               <Home
                 size={22}
-                color={activeTabNav === 'home' ? '#D4AF37' : '#94A3B8'}
+                color={activeTabNav === 'home' ? THEME.colors.textPrimary : '#A1A1AA'}
               />
               <Text
                 style={[
@@ -147,7 +178,7 @@ function MainNavigator() {
             >
               <Compass
                 size={22}
-                color={activeTabNav === 'explore' ? '#D4AF37' : '#94A3B8'}
+                color={activeTabNav === 'explore' ? THEME.colors.textPrimary : '#A1A1AA'}
               />
               <Text
                 style={[
@@ -170,7 +201,7 @@ function MainNavigator() {
             >
               <CalendarCheck
                 size={22}
-                color={activeTabNav === 'bookings' ? '#D4AF37' : '#94A3B8'}
+                color={activeTabNav === 'bookings' ? THEME.colors.textPrimary : '#A1A1AA'}
               />
               <Text
                 style={[
@@ -191,10 +222,17 @@ function MainNavigator() {
               }}
               activeOpacity={0.7}
             >
-              <User
-                size={22}
-                color={activeTabNav === 'profile' ? '#D4AF37' : '#94A3B8'}
-              />
+              {userRole === 'vendor' ? (
+                <Building
+                  size={22}
+                  color={activeTabNav === 'profile' ? THEME.colors.textPrimary : '#A1A1AA'}
+                />
+              ) : (
+                <User
+                  size={22}
+                  color={activeTabNav === 'profile' ? THEME.colors.textPrimary : '#A1A1AA'}
+                />
+              )}
               <Text
                 style={[
                   styles.navLabel,
@@ -202,7 +240,7 @@ function MainNavigator() {
                 ]}
                 numberOfLines={1}
               >
-                Profile
+                {userRole === 'vendor' ? 'Vendor Portal' : 'Profile'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -213,9 +251,23 @@ function MainNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
-      <MainNavigator />
+      <AuthProvider>
+        <MainNavigator />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
@@ -223,30 +275,34 @@ export default function App() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFAFA',
     width: '100%',
   },
   outerContainerWide: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#09090B',
     alignItems: 'center',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#09090B',
     width: '100%',
   },
   containerWide: {
-    maxWidth: 480,
+    maxWidth: 520,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#EEEEF0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+  },
+  containerTablet: {
+    maxWidth: 720,
   },
   content: {
     flex: 1,
+    backgroundColor: '#FAF9F6',
   },
   bottomNav: {
     flexDirection: 'row',
@@ -254,14 +310,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#EEEEF0',
     paddingTop: 10,
     paddingBottom: 6,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.04,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.03,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 4,
   },
   navItem: {
     flex: 1,
@@ -271,12 +327,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   navLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11,
+    color: '#8E8B99',
   },
   navLabelActive: {
-    color: '#D4AF37',
-    fontWeight: '800',
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
   },
 });

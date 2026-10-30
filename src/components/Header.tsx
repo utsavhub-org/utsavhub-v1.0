@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { Crown, Sparkles, MapPin, Heart } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { MapPin, Heart, ChevronDown, User, Building } from 'lucide-react-native';
+import { useAuth } from '../context/AuthContext';
+import { THEME } from '../theme/colors';
 
 interface HeaderProps {
   onPressLocation?: () => void;
@@ -15,63 +17,66 @@ export default function Header({
   onPressWishlist,
   wishlistCount = 3,
 }: HeaderProps) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.07,
-          duration: 1600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1600,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulseLoop.start();
-    return () => pulseLoop.stop();
-  }, [pulseAnim]);
+  const { userRole, openAuthModal } = useAuth();
 
   return (
-    <View style={styles.container}>
+    <View style={styles.header}>
+      {/* Brand & City Dropdown */}
       <View style={styles.brandRow}>
-        <Animated.View style={[styles.logoBadge, { transform: [{ scale: pulseAnim }] }]}>
-          <Crown size={22} color="#FFFFFF" />
-        </Animated.View>
-        <View style={styles.brandTextContainer}>
-          <View style={styles.titleRow}>
-            <Text style={styles.brandText}>
-              Utsav<Text style={styles.goldText}>Hub</Text>
+        <View style={styles.logoFrame}>
+          <Image
+            source={require('../../assets/1.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.titleColumn}>
+          <Text style={styles.brandTitle}>
+            Utsav<Text style={{ color: THEME.colors.gold }}>Hub</Text>
+          </Text>
+
+          {/* Inline City Selector */}
+          <TouchableOpacity
+            style={styles.citySelectorRow}
+            onPress={onPressLocation}
+            activeOpacity={0.7}
+          >
+            <MapPin size={11} color={THEME.colors.gold} />
+            <Text style={styles.cityName} numberOfLines={1}>
+              {selectedCity}
             </Text>
-            <View style={styles.verifiedDot} />
-          </View>
+            <ChevronDown size={11} color="#A1A1AA" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.rightControls}>
+      {/* Right Actions: Wishlist Heart & User/Vendor Avatar */}
+      <View style={styles.rightGroup}>
         <TouchableOpacity
-          style={styles.locationPill}
-          onPress={onPressLocation}
+          style={styles.actionBtn}
+          onPress={onPressWishlist}
           activeOpacity={0.7}
+          accessibilityLabel="Wishlist"
         >
-          <MapPin size={14} color="#D4AF37" />
-          <Text style={styles.locationText} numberOfLines={1}>{selectedCity}</Text>
+          <Heart size={18} color="#FFFFFF" />
+          {wishlistCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{wishlistCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.wishlistBtn}
-          onPress={onPressWishlist}
+          style={styles.roleAvatar}
+          onPress={openAuthModal}
           activeOpacity={0.7}
+          accessibilityLabel="Account and Role Switcher"
         >
-          <Heart size={18} color="#E11D48" fill="#E11D48" />
-          {wishlistCount > 0 && (
-            <View style={styles.wishlistBadge}>
-              <Text style={styles.wishlistBadgeText}>{wishlistCount}</Text>
-            </View>
+          {userRole === 'vendor' ? (
+            <Building size={16} color={THEME.colors.gold} />
+          ) : (
+            <User size={16} color="#FFFFFF" />
           )}
         </TouchableOpacity>
       </View>
@@ -80,126 +85,105 @@ export default function Header({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  header: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: '#FAF8F5',
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#09090B',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(197, 160, 89, 0.25)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    width: '100%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
   brandRow: {
-    flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 1,
   },
-  brandTextContainer: {
-    flex: 1,
-    minWidth: 0,
-  },
-  logoBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#D4AF37',
+  logoFrame: {
+    width: 50,
+    height: 50,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 3,
-    flexShrink: 0,
   },
-  titleRow: {
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  titleColumn: {
+    justifyContent: 'center',
+    flexShrink: 1,
+  },
+  brandTitle: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 19,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    lineHeight: 23,
+  },
+  citySelectorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    gap: 3,
+    marginTop: 1,
   },
-  brandText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+  cityName: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 11.5,
+    color: '#D4D4D8',
+    maxWidth: 120,
   },
-  goldText: {
-    color: '#D4AF37',
-  },
-  verifiedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#059669',
-  },
-  locationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexShrink: 0,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  locationText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    maxWidth: 95,
-  },
-  rightControls: {
+  rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexShrink: 0,
   },
-  wishlistBtn: {
+  actionBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  wishlistBadge: {
+  badge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#E11D48',
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    top: -2,
+    right: -2,
+    backgroundColor: THEME.colors.gold,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    paddingHorizontal: 3,
   },
-  wishlistBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+  badgeText: {
+    fontFamily: THEME.fonts.bold,
+    color: '#09090B',
+    fontSize: 9,
+  },
+  roleAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
 });
