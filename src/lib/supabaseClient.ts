@@ -1339,43 +1339,152 @@ let vendorBusinessesStore: Business[] = [
   },
 ];
 
-export async function getVendorBusinesses(vendorPhoneOrId: string): Promise<Business[]> {
+const localUserCreatedBusinesses: { ownerId: string; business: Business }[] = [];
+
+export interface CreateBusinessInput {
+  name: string;
+  category: 'venue' | 'catering' | 'decoration' | 'photography' | 'dj_sound';
+  city?: string;
+  area_locality: string;
+  cover_image_url?: string;
+  phone: string;
+  whatsapp_number: string;
+  base_price: number;
+  seating_capacity?: number;
+  floating_capacity?: number;
+  ac_rooms_count?: number;
+  parking_cars?: number;
+  diet_type?: 'veg' | 'non_veg' | 'mixed';
+  min_guest_count?: number;
+}
+
+const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
+  venue: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+  catering: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800',
+  decoration: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800',
+  photography: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=800',
+  dj_sound: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800',
+};
+
+export async function getVendorBusinesses(user: UserProfile | null): Promise<Business[]> {
+  if (!user) return [];
+
+  // Demo account: GM Narayana Rao for Grand Swarna Group
+  if (user.id === 'usr-vend-1') {
+    return vendorBusinessesStore;
+  }
+  // Demo account: Chef Rambabu for Annapurna Royal Caterers
+  if (user.id === 'usr-vend-2') {
+    return MOCK_BUSINESSES.filter((b) => b.id === '44444444-4444-4444-4444-444444444444');
+  }
+
+  // Live Supabase query for actual authenticated user
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      const cleanPhone = user.phone ? user.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+      const cleanEmail = user.email ? user.email.trim().toLowerCase() : '';
+
+      // 1. Find vendor IDs owned by this user
+      let vendorIds: string[] = [];
+      const orClauses: string[] = [];
+      if (user.id && !user.id.startsWith('user-')) {
+        orClauses.push(`auth_user_id.eq.${user.id}`);
+      }
+      if (cleanPhone) {
+        orClauses.push(`phone.ilike.%${cleanPhone}%`);
+      }
+      if (cleanEmail) {
+        orClauses.push(`email.eq.${cleanEmail}`);
+      }
+
+      if (orClauses.length > 0) {
+        const { data: vRows } = await supabase
+          .from('vendors')
+          .select('id')
+          .or(orClauses.join(','));
+        if (vRows && vRows.length > 0) {
+          vendorIds = vRows.map((v) => v.id);
+        }
+      }
+
+      // 2. Query businesses belonging to this vendor
+      let bizQuery = supabase
         .from('businesses')
         .select(`
           *,
           vendors (*),
           venue_details (*),
-          catering_packages (*)
-        `)
-        .order('display_order', { ascending: true });
+          catering_packages (*),
+          decor_items (*),
+          media_reels (*)
+        `);
 
+      if (vendorIds.length > 0 && user.businessId) {
+        bizQuery = bizQuery.or(`vendor_id.in.(${vendorIds.join(',')}),id.eq.${user.businessId}`);
+      } else if (vendorIds.length > 0) {
+        bizQuery = bizQuery.in('vendor_id', vendorIds);
+      } else if (user.businessId) {
+        bizQuery = bizQuery.eq('id', user.businessId);
+      } else {
+        // Fresh vendor with zero businesses
+        const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === user.id);
+        return createdForUser.map((c) => c.business);
+      }
+
+      const { data, error } = await bizQuery.order('display_order', { ascending: true });
       if (!error && data && data.length > 0) {
-        return data.map((b: any) => ({
-          id: b.id,
-          name: b.name,
-          category: b.category,
-          city: b.vendors?.city || 'Visakhapatnam',
-          area_locality: b.vendors?.area_locality || 'Madhurawada',
-          latitude: 17.72,
-          longitude: 83.31,
-          cover_image_url: b.cover_image_url,
-          gallery_images: b.gallery_images || [],
-          rating_avg: 4.8,
-          review_count: 14,
-          phone: b.vendors?.phone || '+91 98480 12345',
-          whatsapp_number: b.vendors?.whatsapp_number || '+91 98480 12345',
-          is_verified: true,
-          is_active: b.is_active ?? true,
-        }));
+        return data.map((b: any) => {
+          const v = Array.isArray(b.vendors) ? b.vendors[0] : b.vendors;
+          const vd = Array.isArray(b.venue_details) ? b.venue_details[0] : b.venue_details;
+          return {
+            id: b.id,
+            name: b.name,
+            category: b.category,
+            city: v?.city || 'Visakhapatnam',
+            area_locality: v?.area_locality || 'Madhurawada',
+            latitude: 17.72,
+            longitude: 83.31,
+            cover_image_url: b.cover_image_url,
+            gallery_images: b.gallery_images || [],
+            rating_avg: v?.rating_avg ? Number(v.rating_avg) : 5.0,
+            review_count: v?.review_count || 0,
+            phone: v?.phone || user.phone || '+91 98480 12345',
+            whatsapp_number: v?.whatsapp_number || user.phone || '919848012345',
+            is_verified: v?.is_verified ?? true,
+            is_active: b.is_active ?? true,
+            venue_details: vd
+              ? {
+                  id: vd.id,
+                  business_id: vd.business_id,
+                  is_ac: vd.is_ac ?? true,
+                  seating_capacity: vd.seating_capacity,
+                  floating_capacity: vd.floating_capacity,
+                  ac_rooms_count: vd.ac_rooms_count,
+                  parking_capacity_cars: vd.parking_cars || 50,
+                  outside_catering_allowed: vd.outside_catering_allowed ?? true,
+                  base_rental_price: Number(vd.base_rental_price || 0),
+                  power_backup_kva: vd.power_backup_kva || 100,
+                }
+              : undefined,
+            catering_packages: b.catering_packages || [],
+            decor_items: b.decor_items || [],
+            media_reels: b.media_reels || [],
+          };
+        });
       }
     } catch (e) {
       console.warn('Supabase fetch vendor businesses notice:', e);
     }
   }
-  return vendorBusinessesStore;
+
+  // Fallback: If this fresh user created any in this local session
+  const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === user.id);
+  if (createdForUser.length > 0) {
+    return createdForUser.map((c) => c.business);
+  }
+
+  // A fresh vendor has 0 businesses!
+  return [];
 }
 
 export async function toggleBusinessActive(
@@ -1401,50 +1510,185 @@ export async function toggleBusinessActive(
 }
 
 export async function createVendorBusiness(
-  businessData: Partial<Business>
+  user: UserProfile,
+  input: CreateBusinessInput
 ): Promise<Business | null> {
-  const newBiz: Business = {
-    id: 'biz-' + Date.now(),
-    name: businessData.name || 'New Wedding Service',
-    category: businessData.category || 'venue',
-    city: businessData.city || 'Visakhapatnam',
-    area_locality: businessData.area_locality || 'Madhurawada',
-    latitude: 17.72,
-    longitude: 83.31,
-    cover_image_url:
-      businessData.cover_image_url ||
-      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
-    gallery_images: businessData.gallery_images || [],
-    rating_avg: 5.0,
-    review_count: 1,
-    phone: businessData.phone || '+91 98480 12345',
-    whatsapp_number: businessData.whatsapp_number || '+91 98480 12345',
-    is_verified: true,
-    is_active: true,
-  };
+  const coverUrl =
+    input.cover_image_url ||
+    CATEGORY_DEFAULT_IMAGES[input.category] ||
+    CATEGORY_DEFAULT_IMAGES.venue;
+
+  let vendorId = '00000000-0000-0000-0000-000000000001';
+  let createdBizId = 'biz-' + Date.now();
 
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('businesses')
+      // 1. Create or resolve vendor row
+      const cleanPhone = input.phone || user.phone || '+91 98480 12345';
+      const cleanEmail = user.email || null;
+
+      const { data: vendorData } = await supabase
+        .from('vendors')
         .insert({
-          vendor_id: '11111111-1111-1111-1111-111111111111',
-          name: newBiz.name,
-          category: newBiz.category,
-          cover_image_url: newBiz.cover_image_url,
-          is_active: true,
+          business_name: input.name,
+          primary_contact_name: user.name || input.name,
+          phone: cleanPhone,
+          whatsapp_number: input.whatsapp_number || cleanPhone,
+          email: cleanEmail,
+          city: input.city || 'Visakhapatnam',
+          area_locality: input.area_locality || 'Madhurawada',
+          is_verified: true,
+          rating_avg: 5.0,
+          review_count: 0,
         })
         .select()
         .single();
-      if (!error && data) {
-        newBiz.id = data.id;
+
+      if (vendorData) {
+        vendorId = vendorData.id;
+      }
+
+      // 2. Insert into businesses
+      const { data: bizData } = await supabase
+        .from('businesses')
+        .insert({
+          vendor_id: vendorId,
+          category: input.category,
+          name: input.name,
+          cover_image_url: coverUrl,
+          gallery_images: [coverUrl],
+          is_active: true,
+          display_order: 1,
+        })
+        .select()
+        .single();
+
+      if (bizData) {
+        createdBizId = bizData.id;
+
+        // 3. Category details
+        if (input.category === 'venue') {
+          await supabase.from('venue_details').insert({
+            business_id: createdBizId,
+            is_ac: true,
+            seating_capacity: Number(input.seating_capacity || 600),
+            floating_capacity: Number(input.floating_capacity || 1200),
+            ac_rooms_count: Number(input.ac_rooms_count || 4),
+            parking_cars: Number(input.parking_cars || 50),
+            outside_catering_allowed: true,
+            base_rental_price: Number(input.base_price || 125000),
+            power_backup_kva: 100,
+            dining_hall_capacity: Math.round(Number(input.seating_capacity || 600) * 0.5),
+          });
+        } else if (input.category === 'catering') {
+          await supabase.from('catering_packages').insert({
+            business_id: createdBizId,
+            package_name: `${input.name} Grand Feast`,
+            diet_type: input.diet_type || 'mixed',
+            service_type: 'buffet',
+            price_per_plate: Number(input.base_price || 450),
+            min_guest_count: Number(input.min_guest_count || 100),
+            sweets_count: 3,
+            curries_count: 4,
+            menu_highlights: ['Special Pootharekulu', 'Paneer Butter Masala', 'Dum Biryani'],
+          });
+        } else if (input.category === 'decoration') {
+          await supabase.from('decor_items').insert({
+            business_id: createdBizId,
+            element_type: 'mandapam',
+            title: `${input.name} Celestial Mandapam`,
+            dimensions: '25x20 ft',
+            flower_type: 'Fresh Marigold & Jasmine',
+            base_price: Number(input.base_price || 85000),
+            sample_images: [coverUrl],
+            is_customizable: true,
+          });
+        }
+
+        // 4. Update user profile in Supabase
+        await supabase.from('user_profiles').upsert({
+          id: user.id,
+          phone: cleanPhone,
+          full_name: user.name || input.name,
+          role: 'vendor',
+          business_id: createdBizId,
+          business_name: input.name,
+          business_category: input.category,
+          is_profile_complete: true,
+          updated_at: new Date().toISOString(),
+        });
       }
     } catch (e) {
-      console.warn('Supabase business creation notice:', e);
+      console.warn('Supabase create vendor business notice:', e);
     }
   }
 
-  vendorBusinessesStore.unshift(newBiz);
-  return newBiz;
+  const createdBusiness: Business = {
+    id: createdBizId,
+    name: input.name,
+    category: input.category,
+    city: input.city || 'Visakhapatnam',
+    area_locality: input.area_locality || 'Madhurawada',
+    latitude: 17.72,
+    longitude: 83.31,
+    cover_image_url: coverUrl,
+    gallery_images: [coverUrl],
+    rating_avg: 5.0,
+    review_count: 0,
+    phone: input.phone || user.phone || '+91 98480 12345',
+    whatsapp_number: input.whatsapp_number || input.phone || '919848012345',
+    is_verified: true,
+    is_active: true,
+    venue_details:
+      input.category === 'venue'
+        ? {
+            id: 'vd-' + createdBizId,
+            business_id: createdBizId,
+            is_ac: true,
+            seating_capacity: Number(input.seating_capacity || 600),
+            floating_capacity: Number(input.floating_capacity || 1200),
+            ac_rooms_count: Number(input.ac_rooms_count || 4),
+            parking_capacity_cars: Number(input.parking_cars || 50),
+            outside_catering_allowed: true,
+            base_rental_price: Number(input.base_price || 125000),
+            power_backup_kva: 100,
+          }
+        : undefined,
+    catering_packages:
+      input.category === 'catering'
+        ? [
+            {
+              id: 'cp-' + createdBizId,
+              business_id: createdBizId,
+              package_name: `${input.name} Grand Feast`,
+              package_type: input.diet_type || 'mixed',
+              price_per_plate: Number(input.base_price || 450),
+              min_guest_count: Number(input.min_guest_count || 100),
+              menu_highlights: ['Special Pootharekulu', 'Paneer Butter Masala', 'Dum Biryani'],
+            },
+          ]
+        : [],
+    decor_items:
+      input.category === 'decoration'
+        ? [
+            {
+              id: 'di-' + createdBizId,
+              business_id: createdBizId,
+              element_type: 'mandapam',
+              title: `${input.name} Celestial Mandapam`,
+              dimensions: '25x20 ft',
+              flower_type: 'Fresh Marigold & Jasmine',
+              base_price: Number(input.base_price || 85000),
+              sample_images: [coverUrl],
+              is_customizable: true,
+            },
+          ]
+        : [],
+    media_reels: [],
+    availability_calendar: [],
+  };
+
+  localUserCreatedBusinesses.unshift({ ownerId: user.id, business: createdBusiness });
+  return createdBusiness;
 }
 

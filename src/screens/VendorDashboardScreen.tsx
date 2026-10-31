@@ -72,6 +72,44 @@ import ReelModal from '../components/ReelModal';
 import { THEME } from '../theme/colors';
 import { playButtonClick, playTabPop, playActionSuccess } from '../lib/soundManager';
 
+const LOCALITY_OPTIONS = [
+  'Madhurawada',
+  'Rushikonda',
+  'MVP Colony',
+  'Dwaraka Nagar',
+  'Gajuwaka',
+  'Siripuram',
+  'Seethammadhara',
+  'Pendurthi',
+];
+
+const CATEGORY_IMAGE_PRESETS: Record<string, { label: string; url: string }[]> = {
+  venue: [
+    { label: 'Royal Mandapam Hall', url: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800' },
+    { label: 'Grand Banquet Ceiling', url: 'https://images.unsplash.com/photo-1544077960-604201fe74bc?w=800' },
+    { label: 'Crystal Chandelier Hall', url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800' },
+    { label: 'Beachside Lawn Resort', url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800' },
+  ],
+  catering: [
+    { label: 'Royal Buffet Display', url: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=800' },
+    { label: 'Traditional Andhra Spread', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800' },
+    { label: 'Sweets & Live Counters', url: 'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?w=800' },
+  ],
+  decoration: [
+    { label: 'Temple Gopuram Mandapam', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800' },
+    { label: 'Pastel Lilies Canopy', url: 'https://images.unsplash.com/photo-1478147427282-58a87a120781?w=800' },
+    { label: 'Royal Floral Tunnel', url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800' },
+  ],
+  photography: [
+    { label: 'Cinematic Muhurtham', url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=800' },
+    { label: 'Royal Couple Portrait', url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800' },
+  ],
+  dj_sound: [
+    { label: 'Sangeet Stage Lighting', url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800' },
+    { label: 'Concert Audio System', url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800' },
+  ],
+};
+
 interface VendorDashboardScreenProps {
   onSwitchToCustomer: () => void;
   onPreviewPublicListing: (businessId: string) => void;
@@ -351,6 +389,300 @@ export default function VendorDashboardScreen({
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const renderBusinessForm = (isModal: boolean = false) => {
+    const selectedPresets = CATEGORY_IMAGE_PRESETS[newBizCategory] || CATEGORY_IMAGE_PRESETS.venue;
+    const currentCover = newBizCoverUrl || selectedPresets[0]?.url;
+
+    return (
+      <View style={isModal ? styles.modalFormCard : styles.onboardingFormCard}>
+        {isModal && (
+          <View style={styles.modalHeaderRow}>
+            <View>
+              <Text style={styles.modalHeading}>Add Business Offering</Text>
+              <Text style={styles.modalSubheading}>Expand your vendor portfolio on UtsavHub</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowNewBizModal(false)}
+              style={styles.modalCloseBtn}
+            >
+              <X size={18} color="#A1A1AA" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Text style={styles.onboardingFormTitle}>Step 1: Select Business Category</Text>
+        <View style={styles.categorySelectGrid}>
+          {[
+            { key: 'venue', label: 'Convention Hall', icon: Building },
+            { key: 'catering', label: 'Catering & Sweets', icon: Utensils },
+            { key: 'decoration', label: 'Mandapam Decor', icon: Flower2 },
+            { key: 'photography', label: '4K Photography', icon: Camera },
+            { key: 'dj_sound', label: 'DJ & Sound', icon: Music },
+          ].map((cat) => {
+            const isSelected = newBizCategory === cat.key;
+            const IconComp = cat.icon;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.categoryOptionCard, isSelected && styles.categoryOptionCardActive]}
+                onPress={() => {
+                  playTabPop();
+                  setNewBizCategory(cat.key as any);
+                  setNewBizCoverUrl(CATEGORY_IMAGE_PRESETS[cat.key]?.[0]?.url || '');
+                }}
+                activeOpacity={0.8}
+              >
+                <IconComp size={18} color={isSelected ? '#09090B' : '#C5A059'} />
+                <Text style={[styles.categoryOptionText, isSelected && styles.categoryOptionTextActive]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* BASIC INFO */}
+        <Text style={[styles.onboardingFormTitle, { marginTop: 20 }]}>Step 2: Business Profile</Text>
+
+        <Text style={styles.inputLabel}>OFFICIAL BUSINESS NAME *</Text>
+        <TextInput
+          style={styles.textInput}
+          value={newBizName}
+          onChangeText={setNewBizName}
+          placeholder="e.g. Sri Krishna Kalyana Mandapam"
+          placeholderTextColor="#71717A"
+        />
+
+        <Text style={styles.inputLabel}>AREA / LOCALITY (VISAKHAPATNAM) *</Text>
+        <View style={styles.localityChipsRow}>
+          {LOCALITY_OPTIONS.map((loc) => {
+            const isSelected = newBizLocality === loc;
+            return (
+              <TouchableOpacity
+                key={loc}
+                style={[styles.localityChip, isSelected && styles.localityChipActive]}
+                onPress={() => setNewBizLocality(loc)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.localityChipText, isSelected && styles.localityChipTextActive]}>
+                  {loc}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <TextInput
+          style={[styles.textInput, { marginTop: 8 }]}
+          value={newBizLocality}
+          onChangeText={setNewBizLocality}
+          placeholder="Or enter custom area / street"
+          placeholderTextColor="#71717A"
+        />
+
+        <View style={styles.formRowTwoCol}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inputLabel}>PHONE CONTACT *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newBizPhone}
+              onChangeText={setNewBizPhone}
+              placeholder="+91 98480 12345"
+              placeholderTextColor="#71717A"
+              keyboardType="phone-pad"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inputLabel}>WHATSAPP NUMBER *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newBizWhatsapp}
+              onChangeText={setNewBizWhatsapp}
+              placeholder="+91 98480 12345"
+              placeholderTextColor="#71717A"
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        {/* PRICING & SPECIFICATIONS */}
+        <Text style={[styles.onboardingFormTitle, { marginTop: 20 }]}>
+          Step 3: {newBizCategory === 'venue' ? 'Hall Capacity & Base Tariff' : 'Service Pricing'}
+        </Text>
+
+        {newBizCategory === 'venue' ? (
+          <>
+            <View style={styles.formRowTwoCol}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>24-HR RENTAL PRICE (₹) *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizBasePrice}
+                  onChangeText={setNewBizBasePrice}
+                  placeholder="150000"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>AC ROOMS COUNT</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizRoomsCount}
+                  onChangeText={setNewBizRoomsCount}
+                  placeholder="4"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.formRowTwoCol}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>SEATING CAPACITY</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizSeatingCap}
+                  onChangeText={setNewBizSeatingCap}
+                  placeholder="600"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>FLOATING CAPACITY</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizFloatingCap}
+                  onChangeText={setNewBizFloatingCap}
+                  placeholder="1200"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>PARKING CAPACITY (CARS)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newBizParkingCars}
+              onChangeText={setNewBizParkingCars}
+              placeholder="60"
+              placeholderTextColor="#71717A"
+              keyboardType="numeric"
+            />
+          </>
+        ) : newBizCategory === 'catering' ? (
+          <>
+            <View style={styles.formRowTwoCol}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>PRICE PER PLATE (₹) *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizBasePrice}
+                  onChangeText={setNewBizBasePrice}
+                  placeholder="450"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>MIN GUESTS</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newBizFloatingCap}
+                  onChangeText={setNewBizFloatingCap}
+                  placeholder="100"
+                  placeholderTextColor="#71717A"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>DIET TYPE</Text>
+            <View style={styles.localityChipsRow}>
+              {(['veg', 'non_veg', 'mixed'] as const).map((diet) => (
+                <TouchableOpacity
+                  key={diet}
+                  style={[styles.localityChip, newBizDietType === diet && styles.localityChipActive]}
+                  onPress={() => setNewBizDietType(diet)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.localityChipText, newBizDietType === diet && styles.localityChipTextActive]}>
+                    {diet === 'veg' ? 'Pure Veg' : diet === 'non_veg' ? 'Non-Veg' : 'Mixed (Veg & Non-Veg)'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : (
+          <View>
+            <Text style={styles.inputLabel}>BASE PACKAGE STARTING PRICE (₹) *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newBizBasePrice}
+              onChangeText={setNewBizBasePrice}
+              placeholder="75000"
+              placeholderTextColor="#71717A"
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {/* STEP 4: COVER IMAGE */}
+        <Text style={[styles.onboardingFormTitle, { marginTop: 20 }]}>Step 4: Cover Showcase Photo</Text>
+        <Text style={styles.inputLabel}>TAP A PRESET PHOTO OR ENTER URL</Text>
+        <View style={styles.presetsPhotoRow}>
+          {selectedPresets.map((preset, idx) => {
+            const isSelected = currentCover === preset.url;
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.presetPhotoCard, isSelected && styles.presetPhotoCardActive]}
+                onPress={() => setNewBizCoverUrl(preset.url)}
+                activeOpacity={0.8}
+              >
+                <Image source={{ uri: preset.url }} style={styles.presetPhotoImg} />
+                {isSelected && (
+                  <View style={styles.presetSelectedBadge}>
+                    <Check size={12} color="#09090B" />
+                  </View>
+                )}
+                <Text style={styles.presetPhotoLabel} numberOfLines={1}>{preset.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TextInput
+          style={[styles.textInput, { marginTop: 10 }]}
+          value={newBizCoverUrl}
+          onChangeText={setNewBizCoverUrl}
+          placeholder="Custom Image URL (https://...)"
+          placeholderTextColor="#71717A"
+        />
+
+        {/* SUBMIT BUTTON */}
+        <TouchableOpacity
+          style={[styles.publishSubmitBtn, isCreatingBiz && { opacity: 0.7 }]}
+          onPress={handleCreateBusiness}
+          disabled={isCreatingBiz}
+          activeOpacity={0.85}
+        >
+          {isCreatingBiz ? (
+            <ActivityIndicator color="#09090B" size="small" />
+          ) : (
+            <>
+              <Sparkles size={16} color="#09090B" />
+              <Text style={styles.publishSubmitBtnText}>
+                {isModal ? 'Publish Additional Business' : 'Publish Business & Launch Dashboard'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -2254,5 +2586,236 @@ const styles = StyleSheet.create({
     color: '#09090B',
     fontSize: 14,
     fontWeight: '800',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#09090B',
+    padding: 20,
+  },
+  loadingText: {
+    color: '#A1A1AA',
+    marginTop: 12,
+    fontSize: 13,
+  },
+  onboardingContainer: {
+    gap: 16,
+  },
+  onboardingHeroCard: {
+    backgroundColor: '#121215',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+    marginBottom: 16,
+  },
+  goldCrestCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(197, 160, 89, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C5A059',
+    marginBottom: 12,
+  },
+  onboardingBadge: {
+    backgroundColor: 'rgba(197, 160, 89, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  onboardingBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C5A059',
+    letterSpacing: 1,
+  },
+  onboardingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  onboardingSubtitle: {
+    fontSize: 13,
+    color: '#A1A1AA',
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  onboardingFormCard: {
+    backgroundColor: '#121215',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  onboardingFormTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  categorySelectGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1C1C21',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  categoryOptionCardActive: {
+    backgroundColor: '#C5A059',
+    borderColor: '#C5A059',
+  },
+  categoryOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E4E4E7',
+  },
+  categoryOptionTextActive: {
+    color: '#09090B',
+  },
+  localityChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  localityChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#1C1C21',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  localityChipActive: {
+    backgroundColor: 'rgba(197, 160, 89, 0.2)',
+    borderColor: '#C5A059',
+  },
+  localityChipText: {
+    fontSize: 11,
+    color: '#A1A1AA',
+    fontWeight: '600',
+  },
+  localityChipTextActive: {
+    color: '#C5A059',
+    fontWeight: '700',
+  },
+  formRowTwoCol: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  presetsPhotoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  presetPhotoCard: {
+    width: '48%',
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: '#1C1C21',
+    position: 'relative',
+  },
+  presetPhotoCardActive: {
+    borderColor: '#C5A059',
+  },
+  presetPhotoImg: {
+    width: '100%',
+    height: 80,
+  },
+  presetSelectedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#C5A059',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  presetPhotoLabel: {
+    fontSize: 10,
+    color: '#D4D4D8',
+    padding: 6,
+    fontWeight: '600',
+  },
+  publishSubmitBtn: {
+    backgroundColor: '#C5A059',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 22,
+  },
+  publishSubmitBtnText: {
+    color: '#09090B',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  addBizPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(197, 160, 89, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    borderStyle: 'dashed',
+    gap: 4,
+  },
+  addBizPillText: {
+    fontSize: 12,
+    color: '#C5A059',
+    fontWeight: '700',
+  },
+  modalFormCard: {
+    backgroundColor: '#121215',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+  },
+  modalHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  modalSubheading: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#27272A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
