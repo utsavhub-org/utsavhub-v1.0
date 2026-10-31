@@ -366,11 +366,32 @@ export default function AuthModal() {
 
     try {
       if (emailMode === 'signup') {
-        // Create account
+        // Create account with Firebase modular SDK
         if (auth) {
-          await createUserWithEmailAndPassword(auth, email.trim(), password).catch((e) => {
-            console.warn('Firebase signup note:', e?.message);
-          });
+          try {
+            await createUserWithEmailAndPassword(auth, email.trim(), password);
+          } catch (fErr: any) {
+            console.warn('Firebase signup note:', fErr?.code, fErr?.message);
+            if (fErr?.code === 'auth/email-already-in-use') {
+              setErrorMessage('This email is already registered. Please switch to the "Sign In" tab.');
+              setIsLoading(false);
+              return;
+            } else if (fErr?.code === 'auth/weak-password') {
+              setErrorMessage('Password is too weak. Please use at least 6 characters.');
+              setIsLoading(false);
+              return;
+            } else if (fErr?.code === 'auth/invalid-email') {
+              setErrorMessage('Invalid email address format.');
+              setIsLoading(false);
+              return;
+            } else if (fErr?.code === 'auth/operation-not-allowed') {
+              setErrorMessage(
+                'Email/Password sign-in is not enabled in Firebase Console. Go to Authentication -> Sign-in method and enable Email/Password.'
+              );
+              setIsLoading(false);
+              return;
+            }
+          }
         }
         if (supabase) {
           await supabase.auth.signUp({
@@ -381,7 +402,7 @@ export default function AuthModal() {
         }
         authSuccess = true;
       } else {
-        // Sign in to existing account
+        // Sign in to existing account with Firebase modular SDK
         let firebaseSuccess = false;
         if (auth) {
           try {
@@ -392,6 +413,16 @@ export default function AuthModal() {
             console.warn('Firebase signin note:', fErr?.code);
             if (fErr?.code === 'auth/wrong-password') {
               setErrorMessage('Incorrect password. Please verify or use "Create Account" above.');
+              setIsLoading(false);
+              return;
+            } else if (fErr?.code === 'auth/user-not-found' || fErr?.code === 'auth/invalid-credential') {
+              setErrorMessage(
+                'No existing account found with this email or password incorrect. Click "Create Account" above to register.'
+              );
+              setIsLoading(false);
+              return;
+            } else if (fErr?.code === 'auth/invalid-email') {
+              setErrorMessage('Invalid email format. Please check your email address.');
               setIsLoading(false);
               return;
             }
@@ -406,8 +437,6 @@ export default function AuthModal() {
           if (!error && data?.user) {
             authSuccess = true;
           } else if (error && error.message.includes('Invalid login credentials')) {
-            // If user has not created account with this email/password yet
-            // Automatically help user sign up so they don't get stuck!
             await supabase.auth.signUp({
               email: email.trim(),
               password,

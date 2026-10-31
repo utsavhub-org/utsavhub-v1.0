@@ -8,7 +8,7 @@ import {
   fetchUserProfileFromSupabase,
 } from '../lib/supabaseClient';
 import { auth } from '../lib/firebase';
-import { signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 const STORAGE_KEY_USER = '@utsavhub_active_user';
 
@@ -52,37 +52,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const [navHandler, setNavHandler] = useState<((screen: ScreenType, tab?: TabType) => void) | null>(null);
 
-  // 1. Restore persisted session on initial app boot
+  // 1. Monitor Firebase Auth State as Source of Truth & Restore Session
   useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem(STORAGE_KEY_USER);
-        if (storedUser) {
-          const parsed: UserProfile = JSON.parse(storedUser);
-          setCurrentUser(parsed);
+    let isMounted = true;
 
-          // Refresh profile from Supabase in background if available
-          if (parsed.phone) {
-            fetchUserProfileFromSupabase(parsed.phone)
-              .then((fresh) => {
-                if (fresh) {
-                  setCurrentUser(fresh);
-                  AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh)).catch(() => {});
-                }
-              })
-              .catch(() => {});
+    // Listen to Firebase Auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (!isMounted) return;
+
+      if (firebaseUser) {
+        // User is authenticated with Firebase (Phone OTP, Google, or Email/Password)
+        const identifier = firebaseUser.phoneNumber || firebaseUser.email || firebaseUser.uid;
+        try {
+          const profile = await fetchUserProfileFromSupabase(identifier);
+          if (profile && isMounted) {
+            setCurrentUser(profile);
+            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile)).catch(() => {});
+          } else if (isMounted) {
+            const newProfile: UserProfile = {
+              id: firebaseUser.uid,
+              phone: firebaseUser.phoneNumber || '',
+              email: firebaseUser.email || `${firebaseUser.uid.slice(0, 8)}@utsavhub.com`,
+              name: firebaseUser.displayName || '',
+              avatar_url:
+                firebaseUser.photoURL ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+              role: 'customer',
+              selectedCity: 'Visakhapatnam',
+              area_locality: '',
+              isProfileComplete: false,
+            };
+            setCurrentUser(newProfile);
+            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newProfile)).catch(() => {});
+            syncUserProfileToSupabase(newProfile).catch(() => {});
           }
-        } else {
-          setCurrentUser(null);
+        } catch (e) {
+          console.warn('Firebase auth state user profile sync notice:', e);
         }
-      } catch (err) {
-        console.warn('Error restoring user session:', err);
-      } finally {
+      } else {
+        // No Firebase user; check local AsyncStorage for offline / demo user session
+        try {
+          const storedUser = await AsyncStorage.getItem(STORAGE_KEY_USER);
+          if (storedUser && isMounted) {
+            const parsed: UserProfile = JSON.parse(storedUser);
+            // If it's a demo or preset profile, restore it
+            if (parsed.id?.startsWith('usr-cust') || parsed.id?.startsWith('usr-vendor')) {
+              setCurrentUser(parsed);
+            }
+          }
+        } catch (err) {
+          console.warn('Error reading stored session:', err);
+        }
+      }
+
+      if (isMounted) {
         setIsLoadingAuth(false);
       }
-    };
+    });
 
-    restoreSession();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const userRole: UserRole = currentUser?.role || 'customer';
