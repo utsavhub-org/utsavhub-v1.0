@@ -96,6 +96,7 @@ export default function CateringCalculator({
       <View style={styles.pkgRow}>
         {packages.map((pkg) => {
           const isSelected = pkg.id === selectedPkgId;
+          const pType = (pkg.package_type || (pkg as any).diet_type || 'veg').toLowerCase();
           return (
             <TouchableOpacity
               key={pkg.id}
@@ -110,21 +111,21 @@ export default function CateringCalculator({
                 <View
                   style={[
                     styles.tag,
-                    pkg.package_type === 'veg' ? styles.tagVeg : styles.tagNonVeg,
+                    pType === 'veg' ? styles.tagVeg : styles.tagNonVeg,
                   ]}
                 >
                   <Text
                     style={[
                       styles.tagText,
-                      pkg.package_type === 'veg' ? styles.tagTextVeg : styles.tagTextNonVeg,
+                      pType === 'veg' ? styles.tagTextVeg : styles.tagTextNonVeg,
                     ]}
                   >
-                    {pkg.package_type.toUpperCase()}
+                    {pType.toUpperCase()}
                   </Text>
                 </View>
               </View>
               <Text style={styles.pkgPrice}>
-                ₹{pkg.price_per_plate} <Text style={styles.pkgPriceSub}>/ plate</Text>
+                ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')} <Text style={styles.pkgPriceSub}>/ plate</Text>
               </Text>
             </TouchableOpacity>
           );

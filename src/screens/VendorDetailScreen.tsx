@@ -97,10 +97,21 @@ export default function VendorDetailScreen({
 
   if (!business) {
     return (
-      <View style={styles.loadingScreen}>
-        <Text style={{ color: '#1E293B', fontWeight: '700' }}>Vendor Not Found</Text>
-        <TouchableOpacity onPress={onBack} style={{ marginTop: 10 }}>
-          <Text style={{ color: '#D4AF37' }}>Back to Listings</Text>
+      <View style={[styles.loadingScreen, { backgroundColor: '#09090B', paddingHorizontal: 24 }]}>
+        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 18, marginBottom: 6 }}>Business Not Found</Text>
+        <Text style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+          This business listing is currently unavailable or being updated in the live registry.
+        </Text>
+        <TouchableOpacity
+          onPress={onBack}
+          style={{
+            backgroundColor: '#C5A059',
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: '#09090B', fontWeight: '700', fontSize: 14 }}>Back to Listings</Text>
         </TouchableOpacity>
       </View>
     );
@@ -193,7 +204,7 @@ export default function VendorDetailScreen({
             <View style={styles.ratingPill}>
               <Star size={11} color="#FBBF24" fill="#FBBF24" />
               <Text style={styles.ratingPillText}>
-                {business.rating_avg.toFixed(1)} ({business.review_count})
+                {Number(business.rating_avg || 4.8).toFixed(1)} ({business.review_count || 12})
               </Text>
             </View>
           </View>
@@ -320,7 +331,7 @@ export default function VendorDetailScreen({
                 {business.decor_items.map((item) => (
                   <View key={item.id} style={styles.decorCard}>
                     <Image
-                      source={{ uri: item.sample_images[0] || business.cover_image_url }}
+                      source={{ uri: item.sample_images?.[0] || business.cover_image_url }}
                       style={styles.decorImage}
                     />
                     <View style={styles.decorBody}>
@@ -336,7 +347,7 @@ export default function VendorDetailScreen({
 
                       <View style={styles.decorTopRow}>
                         <Text style={styles.decorTitle}>{item.title}</Text>
-                        <Text style={styles.decorPrice}>₹{item.base_price.toLocaleString('en-IN')}</Text>
+                        <Text style={styles.decorPrice}>₹{Number(item.base_price || 0).toLocaleString('en-IN')}</Text>
                       </View>
                       {item.dimensions && (
                         <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
@@ -374,13 +385,13 @@ export default function VendorDetailScreen({
                 {dCatalogues.map((item) => (
                   <View key={item.id} style={styles.decorCard}>
                     <Image
-                      source={{ uri: item.sample_images[0] || business.cover_image_url }}
+                      source={{ uri: item.sample_images?.[0] || business.cover_image_url }}
                       style={styles.decorImage}
                     />
                     <View style={styles.decorBody}>
                       <View style={styles.decorTopRow}>
                         <Text style={styles.decorTitle}>{item.title}</Text>
-                        <Text style={styles.decorPrice}>₹{item.base_price.toLocaleString('en-IN')}</Text>
+                        <Text style={styles.decorPrice}>₹{Number(item.base_price || 0).toLocaleString('en-IN')}</Text>
                       </View>
                       <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
 
@@ -493,7 +504,7 @@ export default function VendorDetailScreen({
             </Text>
           </View>
           <Text style={styles.stickyAmount}>
-            ₹{(estimatedPrice || vSpecs?.base_rental_price || 125000).toLocaleString('en-IN')}
+            ₹{Math.round(Number(estimatedPrice || vSpecs?.base_rental_price || 125000)).toLocaleString('en-IN')}
             <Text style={styles.stickySubText}>
               {business.category === 'venue' ? ' / day' : customPackageNote ? ` (${customPackageNote})` : ' est.'}
             </Text>

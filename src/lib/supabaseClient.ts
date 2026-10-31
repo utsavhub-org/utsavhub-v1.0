@@ -355,7 +355,9 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
 }
 
 export async function getBusinessById(id: string): Promise<Business | null> {
-  if (supabase) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  if (supabase && isUuid) {
     try {
       const { data, error } = await supabase
         .from('businesses')
@@ -373,38 +375,55 @@ export async function getBusinessById(id: string): Promise<Business | null> {
       if (!error && data) {
         const v = Array.isArray(data.vendors) ? data.vendors[0] : data.vendors;
         const vd = Array.isArray(data.venue_details) ? data.venue_details[0] : data.venue_details;
+        const mockMatch = MOCK_BUSINESSES.find((m) => m.name === data.name || m.id === data.id);
+
         return {
           id: data.id,
           name: data.name,
           category: data.category,
-          city: v?.city || 'Visakhapatnam',
-          area_locality: v?.area_locality || 'Madhurawada',
-          latitude: 17.72,
-          longitude: 83.31,
-          cover_image_url: data.cover_image_url,
-          gallery_images: data.gallery_images || [],
-          rating_avg: v?.rating_avg ? Number(v.rating_avg) : 4.8,
-          review_count: v?.review_count || 12,
-          phone: v?.phone || '+91 98480 12345',
-          whatsapp_number: v?.whatsapp_number || '+91 98480 12345',
+          city: v?.city || mockMatch?.city || 'Visakhapatnam',
+          area_locality: v?.area_locality || mockMatch?.area_locality || 'Madhurawada',
+          latitude: mockMatch?.latitude || 17.72,
+          longitude: mockMatch?.longitude || 83.31,
+          cover_image_url: data.cover_image_url || mockMatch?.cover_image_url,
+          gallery_images: data.gallery_images && data.gallery_images.length > 0 ? data.gallery_images : (mockMatch?.gallery_images || []),
+          rating_avg: v?.rating_avg ? Number(v.rating_avg) : (mockMatch?.rating_avg || 4.8),
+          review_count: v?.review_count || mockMatch?.review_count || 18,
+          phone: v?.phone || mockMatch?.phone || '+91 98480 12345',
+          whatsapp_number: v?.whatsapp_number || mockMatch?.whatsapp_number || '919848012345',
           is_verified: v?.is_verified ?? true,
           venue_details: vd
             ? {
                 id: vd.id,
                 business_id: vd.business_id,
-                is_ac: vd.is_ac,
-                seating_capacity: vd.seating_capacity,
-                floating_capacity: vd.floating_capacity,
-                ac_rooms_count: vd.ac_rooms_count,
+                is_ac: vd.is_ac ?? true,
+                seating_capacity: vd.seating_capacity || 600,
+                floating_capacity: vd.floating_capacity || 1200,
+                ac_rooms_count: vd.ac_rooms_count || 8,
                 parking_capacity_cars: vd.parking_cars || 100,
-                outside_catering_allowed: vd.outside_catering_allowed,
-                base_rental_price: Number(vd.base_rental_price),
-                power_backup_kva: vd.power_backup_kva,
+                outside_catering_allowed: vd.outside_catering_allowed ?? true,
+                base_rental_price: Number(vd.base_rental_price || 175000),
+                power_backup_kva: vd.power_backup_kva || 125,
               }
-            : undefined,
-          decor_items: data.decor_items || [],
-          catering_packages: data.catering_packages || [],
-          media_reels: data.media_reels || [],
+            : mockMatch?.venue_details,
+          decor_items: data.decor_items && data.decor_items.length > 0
+            ? data.decor_items.map((di: any) => ({
+                ...di,
+                base_price: Number(di.base_price || 0),
+                sample_images: Array.isArray(di.sample_images) ? di.sample_images : [],
+              }))
+            : (mockMatch?.decor_items || []),
+          decor_catalogues: mockMatch?.decor_catalogues || [],
+          catering_packages: data.catering_packages && data.catering_packages.length > 0
+            ? data.catering_packages.map((cp: any) => ({
+                ...cp,
+                package_type: cp.package_type || cp.diet_type || 'veg',
+                price_per_plate: Number(cp.price_per_plate || 450),
+              }))
+            : (mockMatch?.catering_packages || []),
+          catering_addons: mockMatch?.catering_addons || [],
+          media_reels: data.media_reels && data.media_reels.length > 0 ? data.media_reels : (mockMatch?.media_reels || []),
+          availability_calendar: mockMatch?.availability_calendar || [],
         };
       }
     } catch (err) {

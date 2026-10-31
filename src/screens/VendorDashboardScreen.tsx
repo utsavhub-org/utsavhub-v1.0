@@ -53,6 +53,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import {
   getBusinessById,
+  getVendorBusinesses,
   getPriceRequestsForBusiness,
   submitPriceUpdateRequest,
   addVendorReel,
@@ -81,7 +82,10 @@ export default function VendorDashboardScreen({
   onPreviewPublicListing,
 }: VendorDashboardScreenProps) {
   const { currentUser, logout, openAuthModal } = useAuth();
-  const businessId = currentUser?.businessId || '11111111-1111-1111-1111-111111111111';
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string>(
+    currentUser?.businessId || '11111111-1111-1111-1111-111111111111'
+  );
+  const [availableBusinesses, setAvailableBusinesses] = useState<Business[]>([]);
 
   // Navigation & View state
   const [activeTab, setActiveTab] = useState<'inquiries' | 'pricing' | 'media' | 'profile'>('inquiries');
@@ -131,11 +135,19 @@ export default function VendorDashboardScreen({
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [bizData, inqs, pReqs] = await Promise.all([
-        getBusinessById(businessId),
-        getVendorInquiries(businessId),
-        getPriceRequestsForBusiness(businessId),
+      const [bizList, bizData, inqs, pReqs] = await Promise.all([
+        getVendorBusinesses(currentUser?.phone || ''),
+        getBusinessById(selectedBusinessId),
+        getVendorInquiries(selectedBusinessId),
+        getPriceRequestsForBusiness(selectedBusinessId),
       ]);
+
+      if (bizList && bizList.length > 0) {
+        setAvailableBusinesses(bizList);
+        if (!bizData && !currentUser?.businessId) {
+          setSelectedBusinessId(bizList[0].id);
+        }
+      }
 
       if (bizData) {
         setBusiness(bizData);
@@ -166,7 +178,7 @@ export default function VendorDashboardScreen({
 
   useEffect(() => {
     loadDashboardData();
-  }, [businessId]);
+  }, [selectedBusinessId]);
 
   // Derived Performance Metrics
   const pendingInquiriesCount = useMemo(() => {
@@ -231,7 +243,7 @@ export default function VendorDashboardScreen({
 
     try {
       const newReq = await submitPriceUpdateRequest({
-        businessId,
+        businessId: selectedBusinessId,
         businessName: business?.name || 'Verified Partner',
         itemType: priceItemType,
         itemName: priceItemName,
@@ -267,7 +279,7 @@ export default function VendorDashboardScreen({
     playButtonClick();
 
     try {
-      const created = await addVendorReel(businessId, {
+      const created = await addVendorReel(selectedBusinessId, {
         title: reelTitle.trim(),
         videoUrl: reelVideoUrl.trim(),
         thumbnailUrl: reelThumbUrl.trim() || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
@@ -300,7 +312,7 @@ export default function VendorDashboardScreen({
 
     try {
       await updateBusinessProfile({
-        businessId,
+        businessId: selectedBusinessId,
         name: bizName,
         phone: phoneContact,
         whatsapp: whatsappContact,
@@ -373,7 +385,7 @@ export default function VendorDashboardScreen({
             style={styles.previewBtn}
             onPress={() => {
               playButtonClick();
-              onPreviewPublicListing(businessId);
+              onPreviewPublicListing(selectedBusinessId);
             }}
             activeOpacity={0.8}
           >
@@ -412,6 +424,55 @@ export default function VendorDashboardScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* MULTI-BUSINESS PORTFOLIO SWITCHER */}
+        {availableBusinesses.length > 1 && (
+          <View style={styles.businessSwitcherContainer}>
+            <View style={styles.businessSwitcherHeader}>
+              <Sliders size={13} color="#C5A059" />
+              <Text style={styles.businessSwitcherLabel}>Managed Business Offerings ({availableBusinesses.length})</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.businessSwitcherScroll}
+            >
+              {availableBusinesses.map((b) => {
+                const isSelected = b.id === selectedBusinessId;
+                return (
+                  <TouchableOpacity
+                    key={b.id}
+                    style={[
+                      styles.businessSwitchPill,
+                      isSelected && styles.businessSwitchPillActive,
+                    ]}
+                    onPress={() => {
+                      playTabPop();
+                      setSelectedBusinessId(b.id);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.businessPillDot,
+                        isSelected ? { backgroundColor: '#C5A059' } : { backgroundColor: '#71717A' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.businessSwitchPillText,
+                        isSelected && styles.businessSwitchPillTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {b.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {/* 2. EXECUTIVE PERFORMANCE KPI GRID */}
         <View style={styles.kpiGrid}>
           {/* KPI 1: Active Inquiries */}
@@ -1421,6 +1482,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 40,
+  },
+  businessSwitcherContainer: {
+    marginBottom: 16,
+    backgroundColor: '#121215',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  businessSwitcherHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  businessSwitcherLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C5A059',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  businessSwitcherScroll: {
+    gap: 8,
+    flexDirection: 'row',
+  },
+  businessSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#1C1C21',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 6,
+  },
+  businessSwitchPillActive: {
+    backgroundColor: 'rgba(197, 160, 89, 0.15)',
+    borderColor: '#C5A059',
+  },
+  businessPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  businessSwitchPillText: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    fontWeight: '600',
+  },
+  businessSwitchPillTextActive: {
+    color: '#C5A059',
+    fontWeight: '700',
   },
   kpiGrid: {
     flexDirection: 'row',
