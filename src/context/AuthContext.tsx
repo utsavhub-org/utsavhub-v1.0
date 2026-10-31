@@ -62,12 +62,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (firebaseUser) {
         // User is authenticated with Firebase (Phone OTP, Google, or Email/Password)
+        const isGoogle = firebaseUser.providerData?.some((p) => p.providerId === 'google.com');
+        const isPhone = Boolean(firebaseUser.phoneNumber);
+        const provider: 'google' | 'phone' | 'email' = isGoogle ? 'google' : isPhone ? 'phone' : 'email';
+
         const identifier = firebaseUser.phoneNumber || firebaseUser.email || firebaseUser.uid;
         try {
           const profile = await fetchUserProfileFromSupabase(identifier);
           if (profile && isMounted) {
-            setCurrentUser(profile);
-            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile)).catch(() => {});
+            const enriched: UserProfile = {
+              ...profile,
+              authProvider: provider,
+              isEmailVerified: firebaseUser.emailVerified || isGoogle,
+            };
+            setCurrentUser(enriched);
+            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(enriched)).catch(() => {});
           } else if (isMounted) {
             const newProfile: UserProfile = {
               id: firebaseUser.uid,
@@ -78,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 firebaseUser.photoURL ||
                 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
               role: 'customer',
+              authProvider: provider,
+              isEmailVerified: firebaseUser.emailVerified || isGoogle,
               selectedCity: 'Visakhapatnam',
               area_locality: '',
               isProfileComplete: false,
@@ -159,12 +170,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: '',
         email: `${phone.replace(/\D/g, '').slice(-10)}@utsavhub.com`,
         role,
+        authProvider: 'phone',
+        isEmailVerified: false,
         selectedCity: 'Visakhapatnam',
         area_locality: '',
         avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
         isProfileComplete: false,
       };
       await syncUserProfileToSupabase(profile);
+    } else {
+      profile.authProvider = 'phone';
     }
 
     setCurrentUser(profile);
@@ -194,8 +209,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: data.id,
         name: data.name,
         email: data.email,
-        phone: '+91 98480 12345',
+        phone: '', // No fake sample number!
         role,
+        authProvider: 'google',
+        isEmailVerified: true,
         selectedCity: 'Visakhapatnam',
         area_locality: '',
         avatar_url:
@@ -204,6 +221,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isProfileComplete: false,
       };
       await syncUserProfileToSupabase(profile);
+    } else {
+      profile.authProvider = 'google';
+      profile.isEmailVerified = true;
     }
 
     setCurrentUser(profile);
@@ -227,21 +247,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const hasName = Boolean(fullName && fullName.trim().length > 1);
     const derivedName = fullName?.trim() || cleanEmail.split('@')[0];
 
-    const profile: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: derivedName,
-      email: cleanEmail,
-      phone: '+91 98480 12345',
-      role,
-      selectedCity: 'Visakhapatnam',
-      area_locality: '',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      isProfileComplete: hasName,
-    };
+    let profile = await fetchUserProfileFromSupabase(cleanEmail);
+
+    if (!profile) {
+      profile = {
+        id: `usr-${Date.now()}`,
+        name: derivedName,
+        email: cleanEmail,
+        phone: '', // No fake sample number!
+        role,
+        authProvider: 'email',
+        isEmailVerified: auth.currentUser?.emailVerified ?? false,
+        selectedCity: 'Visakhapatnam',
+        area_locality: '',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        isProfileComplete: hasName,
+      };
+      await syncUserProfileToSupabase(profile);
+    } else {
+      profile.authProvider = 'email';
+      profile.isEmailVerified = auth.currentUser?.emailVerified ?? false;
+    }
 
     setCurrentUser(profile);
     await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
-    await syncUserProfileToSupabase(profile);
     setIsAuthModalVisible(false);
 
     if (navHandler) {

@@ -112,6 +112,8 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: UserRole;
+  authProvider?: 'google' | 'phone' | 'email';
+  isEmailVerified?: boolean;
   partnerName?: string;
   weddingDate?: string;
   selectedCity: string;

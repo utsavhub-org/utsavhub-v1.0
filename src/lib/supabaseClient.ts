@@ -586,26 +586,6 @@ export async function getCustomerBookings(customerPhoneOrEmail: string): Promise
     }
   }
 
-  // Return fallback for demo phone if present
-  if (customerPhoneOrEmail.includes('98480') || customerPhoneOrEmail.includes('12345')) {
-    return localInquiries.map((d) => ({
-      id: d.id,
-      vendorId: d.business_id,
-      name: 'Grand Swarna Palace Convention Hall',
-      locality: 'Madhurawada, Visakhapatnam',
-      image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
-      date: d.event_date,
-      muhurthamLabel: 'Shukla Paksha Auspicious Muhurtham',
-      guests: d.guest_count,
-      amount: `₹${Number(d.final_customer_amount || d.total_estimated_amount).toLocaleString('en-IN')}`,
-      status: d.status,
-      phone: '+91 98480 12345',
-      whatsapp: '919848012345',
-      statusLabel: d.status === 'approved' ? 'Date Hold Confirmed' : 'Inquiry Under Review',
-      notes: d.notes,
-    }));
-  }
-
   return [];
 }
 

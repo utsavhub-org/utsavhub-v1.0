@@ -16,7 +16,7 @@ export default function Header({
   onPressLocation,
   selectedCity = 'Visakhapatnam',
   onPressWishlist,
-  wishlistCount = 3,
+  wishlistCount = 0,
 }: HeaderProps) {
   const { userRole, openAuthModal, currentUser, isLoggedIn, navigateTo } = useAuth();
 

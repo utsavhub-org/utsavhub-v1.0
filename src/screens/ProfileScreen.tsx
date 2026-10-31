@@ -42,6 +42,9 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Lock,
+  AlertCircle,
+  MailCheck,
+  Mail,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import VendorDashboardScreen from './VendorDashboardScreen';
@@ -53,6 +56,8 @@ import {
   getSupportMessages,
   sendSupportMessage,
   getBusinessReviews,
+  getUserWishlists,
+  getCustomerBookings,
 } from '../lib/supabaseClient';
 
 interface ProfileScreenProps {
@@ -110,6 +115,7 @@ export default function ProfileScreen({
 
   // Form Fields
   const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('customer');
   const [formCity, setFormCity] = useState('Visakhapatnam');
   const [formArea, setFormArea] = useState('');
@@ -118,6 +124,10 @@ export default function ProfileScreen({
   const [formPartnerName, setFormPartnerName] = useState('');
   const [formBusinessName, setFormBusinessName] = useState('');
   const [formBusinessCategory, setFormBusinessCategory] = useState<BusinessCategory>('venue');
+
+  // Real Dynamic Counts for User
+  const [bookingCount, setBookingCount] = useState<number>(0);
+  const [wishlistCount, setWishlistCount] = useState<number>(0);
 
   // Location & Image Picker States
   const [isLocating, setIsLocating] = useState(false);
@@ -279,10 +289,30 @@ export default function ProfileScreen({
     }
   };
 
+  // Fetch real booking and wishlist counts for user
+  useEffect(() => {
+    async function loadStats() {
+      if (currentUser) {
+        const uid = currentUser.id || currentUser.phone || currentUser.email || '';
+        const [savedWishlist, savedBookings] = await Promise.all([
+          getUserWishlists(uid),
+          getCustomerBookings(currentUser.phone || currentUser.email || uid),
+        ]);
+        setWishlistCount(savedWishlist.length);
+        setBookingCount(savedBookings.length);
+      } else {
+        setWishlistCount(0);
+        setBookingCount(0);
+      }
+    }
+    loadStats();
+  }, [currentUser]);
+
   // Auto prompt setup modal if newly signed in with incomplete profile
   useEffect(() => {
     if (currentUser) {
       setFormName(currentUser.name || '');
+      setFormPhone(currentUser.phone || '');
       setFormRole(currentUser.role || 'customer');
       setFormCity(currentUser.selectedCity || 'Visakhapatnam');
       setFormArea(currentUser.area_locality || '');
@@ -352,6 +382,7 @@ export default function ProfileScreen({
     setIsSaving(true);
     const success = await updateProfile({
       name: formName.trim(),
+      phone: formPhone.trim(),
       role: formRole,
       selectedCity: formCity,
       area_locality: formArea.trim(),
@@ -459,19 +490,52 @@ export default function ProfileScreen({
           {currentUser.weddingDate ? ` · Muhurtham in ${currentUser.weddingDate}` : ''}
         </Text>
 
-        <View style={styles.verifiedRow}>
-          <ShieldCheck size={13} color="#10B981" />
-          <Text style={styles.verifiedText}>{currentUser.phone} (OTP Verified)</Text>
-        </View>
+        {/* Verification Status Badge */}
+        {currentUser.authProvider === 'google' || (currentUser.email && (!currentUser.phone || currentUser.isEmailVerified)) ? (
+          <View style={styles.verifiedRow}>
+            <ShieldCheck size={14} color="#10B981" />
+            <Text style={styles.verifiedText}>
+              {currentUser.email} • Google Verified
+            </Text>
+          </View>
+        ) : currentUser.authProvider === 'phone' || (currentUser.phone && !currentUser.email?.includes('@')) ? (
+          <View style={styles.verifiedRow}>
+            <ShieldCheck size={14} color="#10B981" />
+            <Text style={styles.verifiedText}>
+              +91 {currentUser.phone.replace('+91', '').trim()} (Phone OTP Verified)
+            </Text>
+          </View>
+        ) : currentUser.isEmailVerified ? (
+          <View style={styles.verifiedRow}>
+            <ShieldCheck size={14} color="#10B981" />
+            <Text style={styles.verifiedText}>
+              {currentUser.email} (Email Verified)
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.verifiedRow, styles.unverifiedRow]}>
+            <AlertCircle size={14} color="#F59E0B" />
+            <Text style={styles.unverifiedText}>
+              {currentUser.email} (Email Unverified - App Access Active)
+            </Text>
+          </View>
+        )}
 
-        {/* Quick Stats Grid */}
+        {currentUser.phone && currentUser.phone.trim().length > 0 ? (
+          <View style={styles.phoneDisplayRow}>
+            <Phone size={12} color="#64748B" />
+            <Text style={styles.phoneDisplayText}>{currentUser.phone}</Text>
+          </View>
+        ) : null}
+
+        {/* Quick Stats Grid with Real Live Counts */}
         <View style={styles.statsCard}>
           <TouchableOpacity
             style={styles.statCol}
             onPress={onNavigateToBookings}
             activeOpacity={0.7}
           >
-            <Text style={styles.statNumber}>2</Text>
+            <Text style={styles.statNumber}>{bookingCount}</Text>
             <Text style={styles.statLabel}>Venue Holds</Text>
           </TouchableOpacity>
 
@@ -482,7 +546,7 @@ export default function ProfileScreen({
             onPress={onNavigateToWishlist}
             activeOpacity={0.7}
           >
-            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statNumber}>{wishlistCount}</Text>
             <Text style={styles.statLabel}>Wishlisted</Text>
           </TouchableOpacity>
 
@@ -493,8 +557,8 @@ export default function ProfileScreen({
             onPress={onNavigateToExplore}
             activeOpacity={0.7}
           >
-            <Text style={styles.statNumber}>1</Text>
-            <Text style={styles.statLabel}>Quote Saved</Text>
+            <Text style={styles.statNumber}>{bookingCount > 0 ? 1 : 0}</Text>
+            <Text style={styles.statLabel}>Quotes</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -786,6 +850,19 @@ export default function ProfileScreen({
                   onChangeText={setFormName}
                   placeholder="e.g. Ananya & Rahul or Sridhar Varma"
                   placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              {/* Mobile Phone Number */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Mobile Phone Number (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={formPhone}
+                  onChangeText={(txt) => setFormPhone(txt.replace(/[^\d+]/g, ''))}
+                  placeholder="e.g. 98480 12345 (For booking confirmation alerts)"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
                 />
               </View>
 
@@ -1364,6 +1441,28 @@ const styles = StyleSheet.create({
     fontFamily: THEME.fonts.medium,
     fontSize: 12,
     color: '#059669',
+  },
+  unverifiedRow: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  unverifiedText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#D97706',
+  },
+  phoneDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 14,
+  },
+  phoneDisplayText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12.5,
+    color: '#64748B',
   },
   statsCard: {
     flexDirection: 'row',

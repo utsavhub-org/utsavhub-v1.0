@@ -90,7 +90,7 @@ export default function HomeScreen({
   onNavigateToListings,
   onNavigateToVendor,
   onNavigateToWishlist,
-  wishlistCount = 3,
+  wishlistCount = 0,
 }: HomeScreenProps) {
   const [activeReel, setActiveReel] = useState<MediaReel | null>(null);
   const [activeReelBiz, setActiveReelBiz] = useState<Business | null>(null);

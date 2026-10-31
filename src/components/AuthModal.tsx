@@ -59,7 +59,7 @@ export default function AuthModal() {
   const [authMethod, setAuthMethod] = useState<'google' | 'phone' | 'email'>('phone');
 
   // Phone State
-  const [phoneNumber, setPhoneNumber] = useState('9848012345');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [phoneStep, setPhoneStep] = useState<'input' | 'verify'>('input');
   const [resendTimer, setResendTimer] = useState(30);

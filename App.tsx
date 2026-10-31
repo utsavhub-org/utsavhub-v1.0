@@ -19,6 +19,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthModal from './src/components/AuthModal';
 import AppOpeningIntro from './src/components/AppOpeningIntro';
+import { getUserWishlists } from './src/lib/supabaseClient';
 import { THEME } from './src/theme/colors';
 import { playTabPop, playButtonClick } from './src/lib/soundManager';
 
@@ -29,8 +30,23 @@ function MainNavigator() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [prevScreen, setPrevScreen] = useState<ScreenType>('home');
   const [activeTabNav, setActiveTabNav] = useState<'home' | 'explore' | 'bookings' | 'profile'>('home');
+  const [wishlistCount, setWishlistCount] = useState<number>(0);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+
+  // Dynamically load real wishlist count from Supabase
+  useEffect(() => {
+    async function fetchCount() {
+      if (currentUser) {
+        const uid = currentUser.id || currentUser.phone || currentUser.email || '';
+        const saved = await getUserWishlists(uid);
+        setWishlistCount(saved.length);
+      } else {
+        setWishlistCount(0);
+      }
+    }
+    fetchCount();
+  }, [currentUser]);
 
   useEffect(() => {
     registerNavHandler((screen, tab) => {
@@ -115,7 +131,7 @@ function MainNavigator() {
               onNavigateToListings={navigateToListings}
               onNavigateToVendor={navigateToVendor}
               onNavigateToWishlist={() => navigateToListings({ category: 'wishlist' })}
-              wishlistCount={3}
+              wishlistCount={wishlistCount}
             />
           )}
 
