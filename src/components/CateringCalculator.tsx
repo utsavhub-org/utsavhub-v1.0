@@ -124,9 +124,14 @@ export default function CateringCalculator({
                   </Text>
                 </View>
               </View>
-              <Text style={styles.pkgPrice}>
-                ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')} <Text style={styles.pkgPriceSub}>/ plate</Text>
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                <Text style={styles.pkgPrice}>
+                  ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')} <Text style={styles.pkgPriceSub}>/ plate</Text>
+                </Text>
+                <View style={styles.negotiableTag}>
+                  <Text style={styles.negotiableTagText}>Negotiable</Text>
+                </View>
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -229,6 +234,29 @@ export default function CateringCalculator({
                   <Check size={11} color="#059669" />
                 </View>
                 <Text style={styles.dishText}>{dish}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Itemized Custom Dishes & Live Counters */}
+      {business.catering_items && business.catering_items.length > 0 && (
+        <View style={styles.addonsBox}>
+          <Text style={styles.sectionLabel}>
+            CUSTOM DISHES & LIVE COUNTERS (NEGOTIABLE)
+          </Text>
+          <View style={{ gap: 8 }}>
+            {business.catering_items.map((cItem) => (
+              <View key={cItem.id} style={styles.itemizedDishRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemizedDishTitle}>{cItem.item_name}</Text>
+                  <Text style={styles.itemizedDishCat}>{cItem.category.toUpperCase().replace('_', ' ')}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.itemizedDishPrice}>₹{cItem.base_price_per_plate}/plate</Text>
+                  <Text style={styles.itemizedNegotiableText}>Price Negotiable</Text>
+                </View>
               </View>
             ))}
           </View>
@@ -526,5 +554,50 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  negotiableTag: {
+    backgroundColor: '#FEF9EE',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  negotiableTagText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#8A723D',
+  },
+  itemizedDishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    borderRadius: 12,
+  },
+  itemizedDishTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  itemizedDishCat: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8A723D',
+    marginTop: 2,
+  },
+  itemizedDishPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  itemizedNegotiableText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#059669',
+    marginTop: 2,
   },
 });

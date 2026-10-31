@@ -31,6 +31,11 @@ import {
   Share2,
   CheckCircle2,
   ShieldCheck,
+  Camera,
+  Music,
+  Tag,
+  Ruler,
+  Check,
 } from 'lucide-react-native';
 import ReelModal from '../components/ReelModal';
 import BookingModal from '../components/BookingModal';
@@ -54,7 +59,8 @@ export default function VendorDetailScreen({
 }: VendorDetailScreenProps) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'specs' | 'decor' | 'catering' | 'gallery'>('specs');
+  const [activeTab, setActiveTab] = useState<'specs' | 'decor' | 'catering' | 'photography' | 'dj_sound' | 'gallery'>('specs');
+  const [decorCeremonyFilter, setDecorCeremonyFilter] = useState<string>('all');
   const insets = useSafeAreaInsets();
 
   const [activeReel, setActiveReel] = useState<MediaReel | null>(null);
@@ -70,13 +76,19 @@ export default function VendorDetailScreen({
       setBusiness(data);
 
       if (data) {
-        if (data.category === 'decoration' || (data.decor_catalogues && data.decor_catalogues.length > 0)) {
+        if (data.category === 'decoration' || (data.decor_items && data.decor_items.length > 0)) {
           setActiveTab('decor');
-          setEstimatedPrice(data.decor_catalogues?.[0]?.base_price || 115000);
+          setEstimatedPrice(data.decor_items?.[0]?.base_price || 65000);
         } else if (data.category === 'catering' || (data.catering_packages && data.catering_packages.length > 0)) {
           setActiveTab('catering');
           const perPlate = data.catering_packages?.[0]?.price_per_plate || 450;
           setEstimatedPrice(perPlate * initialGuests);
+        } else if (data.category === 'photography' || (data.photography_packages && data.photography_packages.length > 0)) {
+          setActiveTab('photography');
+          setEstimatedPrice(data.photography_packages?.[0]?.base_price || 45000);
+        } else if (data.category === 'dj_sound' || (data.dj_sound_packages && data.dj_sound_packages.length > 0)) {
+          setActiveTab('dj_sound');
+          setEstimatedPrice(data.dj_sound_packages?.[0]?.base_price || 25000);
         } else {
           setActiveTab('specs');
           setEstimatedPrice(data.venue_details?.base_rental_price || 125000);
@@ -268,6 +280,36 @@ export default function VendorDetailScreen({
           )}
         </View>
 
+        {/* Base Starting Price & Negotiable Banner */}
+        <View style={styles.startingPriceBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.startingPriceLabel}>BASE PRICE STARTS FROM</Text>
+            <View style={styles.startingPriceValueRow}>
+              <Text style={styles.startingPriceValue}>
+                ₹{Number(
+                  business.starting_price ||
+                  (business.category === 'catering'
+                    ? 450
+                    : business.category === 'decoration'
+                    ? 65000
+                    : business.category === 'photography'
+                    ? 45000
+                    : business.category === 'dj_sound'
+                    ? 25000
+                    : 150000)
+                ).toLocaleString('en-IN')}
+              </Text>
+              {business.category === 'catering' && (
+                <Text style={styles.perPlateSuffix}> / plate</Text>
+              )}
+            </View>
+          </View>
+          <View style={styles.negotiablePill}>
+            <Tag size={13} color="#B89324" />
+            <Text style={styles.negotiablePillText}>Price Negotiable</Text>
+          </View>
+        </View>
+
         {/* Tab Selector (Horizontally Scrollable) */}
         <View style={styles.tabBarWrapper}>
           <ScrollView
@@ -280,19 +322,21 @@ export default function VendorDetailScreen({
                 style={[styles.tabBtn, activeTab === 'specs' && styles.tabBtnActive]}
                 onPress={() => setActiveTab('specs')}
               >
+                <Building size={13} color={activeTab === 'specs' ? '#D4AF37' : '#94A3B8'} style={{ marginRight: 5 }} />
                 <Text style={[styles.tabBtnText, activeTab === 'specs' && styles.tabBtnTextActive]}>
                   Specs & Policy
                 </Text>
               </TouchableOpacity>
             )}
 
-            {(dCatalogues.length > 0 || business.category === 'decoration') && (
+            {(dCatalogues.length > 0 || (business.decor_items && business.decor_items.length > 0) || business.category === 'decoration') && (
               <TouchableOpacity
                 style={[styles.tabBtn, activeTab === 'decor' && styles.tabBtnActive]}
                 onPress={() => setActiveTab('decor')}
               >
+                <Flower2 size={13} color={activeTab === 'decor' ? '#D4AF37' : '#94A3B8'} style={{ marginRight: 5 }} />
                 <Text style={[styles.tabBtnText, activeTab === 'decor' && styles.tabBtnTextActive]}>
-                  Mandapam Lookbook
+                  Mandapam & Sets
                 </Text>
               </TouchableOpacity>
             )}
@@ -302,8 +346,33 @@ export default function VendorDetailScreen({
                 style={[styles.tabBtn, activeTab === 'catering' && styles.tabBtnActive]}
                 onPress={() => setActiveTab('catering')}
               >
+                <Utensils size={13} color={activeTab === 'catering' ? '#D4AF37' : '#94A3B8'} style={{ marginRight: 5 }} />
                 <Text style={[styles.tabBtnText, activeTab === 'catering' && styles.tabBtnTextActive]}>
-                  Plate Calculator
+                  Feast & Calculator
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {((business.photography_packages && business.photography_packages.length > 0) || business.category === 'photography') && (
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'photography' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('photography')}
+              >
+                <Camera size={13} color={activeTab === 'photography' ? '#D4AF37' : '#94A3B8'} style={{ marginRight: 5 }} />
+                <Text style={[styles.tabBtnText, activeTab === 'photography' && styles.tabBtnTextActive]}>
+                  Cinema Packages
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {((business.dj_sound_packages && business.dj_sound_packages.length > 0) || business.category === 'dj_sound') && (
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'dj_sound' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('dj_sound')}
+              >
+                <Music size={13} color={activeTab === 'dj_sound' ? '#D4AF37' : '#94A3B8'} style={{ marginRight: 5 }} />
+                <Text style={[styles.tabBtnText, activeTab === 'dj_sound' && styles.tabBtnTextActive]}>
+                  Sound & DJ FX
                 </Text>
               </TouchableOpacity>
             )}
@@ -319,69 +388,121 @@ export default function VendorDetailScreen({
           </ScrollView>
         </View>
 
-        {/* Tab A: Mandapam & Decor Lookbook */}
+        {/* Tab A: Mandapam & Decor Sets */}
         {activeTab === 'decor' && (
           <View style={styles.tabContent}>
+            {/* Ceremony Filter Chips */}
+            <View style={{ marginBottom: 14 }}>
+              <Text style={styles.sectionSubHeader}>TELUGU CEREMONY OFFERINGS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                {[
+                  { key: 'all', label: 'All Sets' },
+                  { key: 'mandapam', label: '🏛️ Mandapams' },
+                  { key: 'wayworks_entrance', label: '✨ Way Works' },
+                  { key: 'sangeeth', label: '🎉 Sangeeth' },
+                  { key: 'rata_muhurtham', label: '🪔 Rata Muhurtham' },
+                  { key: 'kalagollu_sambaralu', label: '🌼 Kalagollu Sambaralu' },
+                  { key: 'home_decor', label: '🏡 Home Decor' },
+                ].map((c) => {
+                  const isSel = decorCeremonyFilter === c.key;
+                  return (
+                    <TouchableOpacity
+                      key={c.key}
+                      style={[styles.ceremonyFilterChip, isSel && styles.ceremonyFilterChipActive]}
+                      onPress={() => setDecorCeremonyFilter(c.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.ceremonyFilterChipText, isSel && styles.ceremonyFilterChipTextActive]}>
+                        {c.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
             {/* Modular Decor Elements: Mandapams, Wayworks, Haldi/Mehendi */}
             {business.decor_items && business.decor_items.length > 0 && (
               <View style={{ marginBottom: 12 }}>
-                <Text style={styles.sectionSubHeader}>
-                  MODULAR DECOR ELEMENTS & WAYWORKS ({business.decor_items.length})
-                </Text>
-                {business.decor_items.map((item) => (
-                  <View key={item.id} style={styles.decorCard}>
-                    <Image
-                      source={{ uri: item.sample_images?.[0] || business.cover_image_url }}
-                      style={styles.decorImage}
-                    />
-                    <View style={styles.decorBody}>
-                      <View style={styles.decorTypeBadge}>
-                        <Text style={styles.decorTypeBadgeText}>
-                          {item.element_type === 'mandapam' && 'MANDAPAM STAGE'}
-                          {item.element_type === 'wayworks_entrance' && 'WAYWORKS / ENTRY TUNNEL'}
-                          {item.element_type === 'haldi_mehendi' && 'HALDI / MEHENDI JHULA'}
-                          {item.element_type === 'reception_backdrop' && 'RECEPTION BACKDROP'}
-                          {item.element_type === 'lighting_fx' && 'LIGHTING & FX'}
-                        </Text>
-                      </View>
+                {business.decor_items
+                  .filter((item) => decorCeremonyFilter === 'all' || item.element_type === decorCeremonyFilter)
+                  .map((item) => (
+                    <View key={item.id} style={styles.decorCard}>
+                      <Image
+                        source={{ uri: item.sample_images?.[0] || business.cover_image_url }}
+                        style={styles.decorImage}
+                      />
+                      <View style={styles.decorBody}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <View style={styles.decorTypeBadge}>
+                            <Text style={styles.decorTypeBadgeText}>
+                              {item.element_type === 'mandapam' && '🏛️ MANDAPAM STAGE'}
+                              {item.element_type === 'wayworks_entrance' && '✨ WAYWORKS / ENTRY TUNNEL'}
+                              {item.element_type === 'sangeeth' && '🎉 SANGEETH & RECEPTION'}
+                              {item.element_type === 'rata_muhurtham' && '🪔 RATA MUHURTHAM (GAURI POOJA)'}
+                              {item.element_type === 'kalagollu_sambaralu' && '🌼 KALAGOLLU SAMBARALU (HALDI)'}
+                              {item.element_type === 'home_decor' && '🏡 HOME DECOR & HOUSE LIGHTS'}
+                              {item.element_type === 'haldi_mehendi' && '🌼 HALDI / MEHENDI JHULA'}
+                              {item.element_type === 'reception_backdrop' && 'RECEPTION BACKDROP'}
+                              {item.element_type === 'lighting_fx' && 'LIGHTING & FX'}
+                            </Text>
+                          </View>
 
-                      <View style={styles.decorTopRow}>
+                          <View style={styles.cardNegotiablePill}>
+                            <Text style={styles.cardNegotiablePillText}>Price Negotiable</Text>
+                          </View>
+                        </View>
+
                         <Text style={styles.decorTitle}>{item.title}</Text>
-                        <Text style={styles.decorPrice}>₹{Number(item.base_price || 0).toLocaleString('en-IN')}</Text>
-                      </View>
-                      {item.dimensions && (
-                        <Text style={styles.decorDimensions}>Dimensions: {item.dimensions}</Text>
-                      )}
-                      {item.flower_type && (
-                        <Text style={styles.decorFlowerText}>Flowers: {item.flower_type}</Text>
-                      )}
 
-                      <View style={styles.decorBtnRow}>
-                        <TouchableOpacity
-                          style={styles.decorWaBtn}
-                          onPress={() => {
-                            const cleanNum = business.whatsapp_number.replace(/\D/g, '');
-                            const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20${encodeURIComponent(item.title)}%20(${item.element_type})`;
-                            Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
-                          }}
-                        >
-                          <MessageCircle size={13} color="#FFFFFF" />
-                          <Text style={styles.decorWaBtnText}>Inquire for this Setup</Text>
-                        </TouchableOpacity>
+                        {/* Dimensions, Height & Flower Specs */}
+                        <View style={styles.decorSpecsRow}>
+                          {item.dimensions && (
+                            <View style={styles.decorSpecChip}>
+                              <Ruler size={11} color="#B89324" />
+                              <Text style={styles.decorSpecChipText}>Size: {item.dimensions}</Text>
+                            </View>
+                          )}
+                          {item.height && (
+                            <View style={styles.decorSpecChip}>
+                              <Text style={styles.decorSpecChipText}>Height: {item.height}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {item.flower_type && (
+                          <Text style={styles.decorFlowerText}>🌸 Composition: {item.flower_type}</Text>
+                        )}
+
+                        <View style={styles.decorPriceActionRow}>
+                          <View>
+                            <Text style={styles.decorPriceLabel}>ESTIMATED RATE</Text>
+                            <Text style={styles.decorPrice}>₹{Number(item.base_price || 0).toLocaleString('en-IN')}</Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.decorWaBtn}
+                            onPress={() => {
+                              const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                              const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(item.title)}%20setup%20(${encodeURIComponent(item.dimensions || '')}%2C%20${encodeURIComponent(item.height || '')})%20for%20my%20auspicious%20date%20${initialDate}.`;
+                              Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                            }}
+                          >
+                            <MessageCircle size={14} color="#FFFFFF" />
+                            <Text style={styles.decorWaBtnText}>Inquire for Setup</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
               </View>
             )}
 
             {dCatalogues.length > 0 && (
               <View>
-                {business.decor_items && business.decor_items.length > 0 && (
-                  <Text style={[styles.sectionSubHeader, { marginTop: 8 }]}>
-                    COMPLETE THEME LOOKBOOKS & CATALOGUES
-                  </Text>
-                )}
+                <Text style={[styles.sectionSubHeader, { marginTop: 8 }]}>
+                  COMPLETE THEME LOOKBOOKS & CATALOGUES
+                </Text>
                 {dCatalogues.map((item) => (
                   <View key={item.id} style={styles.decorCard}>
                     <Image
@@ -441,7 +562,159 @@ export default function VendorDetailScreen({
           </View>
         )}
 
-        {/* Tab C: Venue Specs */}
+        {/* Tab C: Photography & Cinema Packages */}
+        {activeTab === 'photography' && (
+          <View style={styles.tabContent}>
+            <View style={{ marginBottom: 14 }}>
+              <Text style={styles.sectionSubHeader}>4K WEDDING CINEMA & PHOTOGRAPHY PACKAGES</Text>
+              <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
+                Full-service cinematography, candid stills, heirloom photo albums & drone aerial coverage.
+              </Text>
+            </View>
+
+            {(business.photography_packages || []).map((pkg) => (
+              <View key={pkg.id} style={styles.decorCard}>
+                <Image
+                  source={{ uri: pkg.sample_images?.[0] || business.cover_image_url }}
+                  style={styles.decorImage}
+                />
+                <View style={styles.decorBody}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <View style={styles.decorTypeBadge}>
+                      <Text style={styles.decorTypeBadgeText}>
+                        🎬 {pkg.package_type.toUpperCase().replace('_', ' ')}
+                      </Text>
+                    </View>
+                    <View style={styles.cardNegotiablePill}>
+                      <Text style={styles.cardNegotiablePillText}>Price Negotiable</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.decorTitle}>{pkg.title}</Text>
+
+                  <View style={styles.decorSpecsRow}>
+                    {pkg.duration && (
+                      <View style={styles.decorSpecChip}>
+                        <Calendar size={11} color="#B89324" />
+                        <Text style={styles.decorSpecChipText}>{pkg.duration}</Text>
+                      </View>
+                    )}
+                    {pkg.crew_count && (
+                      <View style={styles.decorSpecChip}>
+                        <Users size={11} color="#B89324" />
+                        <Text style={styles.decorSpecChipText}>{pkg.crew_count}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Deliverables list */}
+                  <View style={{ marginTop: 10, marginBottom: 12, gap: 5 }}>
+                    {pkg.deliverables.map((deliv, dIdx) => (
+                      <View key={dIdx} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                        <Check size={13} color="#059669" style={{ marginTop: 2 }} />
+                        <Text style={{ fontSize: 12.5, color: '#334155', flex: 1 }}>{deliv}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.decorPriceActionRow}>
+                    <View>
+                      <Text style={styles.decorPriceLabel}>PACKAGE RATE</Text>
+                      <Text style={styles.decorPrice}>₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.decorWaBtn}
+                      onPress={() => {
+                        const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                        const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(pkg.title)}%20package%20for%20my%20wedding%20on%20${initialDate}.`;
+                        Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                      }}
+                    >
+                      <MessageCircle size={14} color="#FFFFFF" />
+                      <Text style={styles.decorWaBtnText}>Inquire Package</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Tab D: Sound & DJ FX Packages */}
+        {activeTab === 'dj_sound' && (
+          <View style={styles.tabContent}>
+            <View style={{ marginBottom: 14 }}>
+              <Text style={styles.sectionSubHeader}>CONCERT SOUND, DJ & LIGHTING PACKAGES</Text>
+              <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
+                High-impact line-array audio, moving head trusses, Barat sound trucks, and cold pyrotechnics.
+              </Text>
+            </View>
+
+            {(business.dj_sound_packages || []).map((pkg) => (
+              <View key={pkg.id} style={styles.decorCard}>
+                <Image
+                  source={{ uri: pkg.sample_images?.[0] || business.cover_image_url }}
+                  style={styles.decorImage}
+                />
+                <View style={styles.decorBody}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <View style={styles.decorTypeBadge}>
+                      <Text style={styles.decorTypeBadgeText}>
+                        🎵 {pkg.package_type.toUpperCase().replace('_', ' ')}
+                      </Text>
+                    </View>
+                    <View style={styles.cardNegotiablePill}>
+                      <Text style={styles.cardNegotiablePillText}>Price Negotiable</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.decorTitle}>{pkg.title}</Text>
+
+                  {pkg.power_output_watts && (
+                    <View style={styles.decorSpecsRow}>
+                      <View style={styles.decorSpecChip}>
+                        <Zap size={11} color="#B89324" />
+                        <Text style={styles.decorSpecChipText}>Power: {pkg.power_output_watts}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Highlights list */}
+                  <View style={{ marginTop: 10, marginBottom: 12, gap: 5 }}>
+                    {pkg.equipment_highlights.map((equip, eIdx) => (
+                      <View key={eIdx} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                        <Check size={13} color="#059669" style={{ marginTop: 2 }} />
+                        <Text style={{ fontSize: 12.5, color: '#334155', flex: 1 }}>{equip}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.decorPriceActionRow}>
+                    <View>
+                      <Text style={styles.decorPriceLabel}>SETUP TARIFF</Text>
+                      <Text style={styles.decorPrice}>₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.decorWaBtn}
+                      onPress={() => {
+                        const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                        const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20${encodeURIComponent(pkg.title)}%20(${encodeURIComponent(pkg.power_output_watts || '')})%20for%20my%20event%20on%20${initialDate}.`;
+                        Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                      }}
+                    >
+                      <MessageCircle size={14} color="#FFFFFF" />
+                      <Text style={styles.decorWaBtnText}>Inquire Setup</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Tab E: Venue Specs */}
         {activeTab === 'specs' && vSpecs && (
           <View style={styles.tabContent}>
             <View style={styles.specsCard}>
@@ -484,7 +757,7 @@ export default function VendorDetailScreen({
           </View>
         )}
 
-        {/* Tab D: Photo Gallery */}
+        {/* Tab F: Photo Gallery */}
         {activeTab === 'gallery' && (
           <View style={styles.tabContent}>
             {[business.cover_image_url, ...(business.gallery_images || [])].map((uri, idx) => (
@@ -543,6 +816,129 @@ export default function VendorDetailScreen({
 }
 
 const styles = StyleSheet.create({
+  startingPriceBanner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#FFFDF9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  startingPriceLabel: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 10,
+    color: '#8A723D',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  startingPriceValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  startingPriceValue: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 22,
+    color: '#0F172A',
+  },
+  perPlateSuffix: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 13,
+    color: '#64748B',
+  },
+  negotiablePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF9EE',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  negotiablePillText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#8A723D',
+  },
+  ceremonyFilterChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  ceremonyFilterChipActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  ceremonyFilterChipText: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 12,
+    color: '#475569',
+  },
+  ceremonyFilterChipTextActive: {
+    fontFamily: THEME.fonts.bold,
+    color: '#D4AF37',
+  },
+  cardNegotiablePill: {
+    backgroundColor: '#FEF9EE',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  cardNegotiablePillText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 10,
+    color: '#8A723D',
+  },
+  decorSpecsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  decorSpecChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  decorSpecChipText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11,
+    color: '#475569',
+  },
+  decorPriceActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  decorPriceLabel: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 9.5,
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+
   screen: {
     flex: 1,
     backgroundColor: '#FDFBF7',

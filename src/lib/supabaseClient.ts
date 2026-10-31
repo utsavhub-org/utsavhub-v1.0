@@ -392,6 +392,7 @@ export async function getBusinessById(id: string): Promise<Business | null> {
           phone: v?.phone || mockMatch?.phone || '+91 98480 12345',
           whatsapp_number: v?.whatsapp_number || mockMatch?.whatsapp_number || '919848012345',
           is_verified: v?.is_verified ?? true,
+          starting_price: data.starting_price ? Number(data.starting_price) : mockMatch?.starting_price,
           venue_details: vd
             ? {
                 id: vd.id,
@@ -409,6 +410,8 @@ export async function getBusinessById(id: string): Promise<Business | null> {
           decor_items: data.decor_items && data.decor_items.length > 0
             ? data.decor_items.map((di: any) => ({
                 ...di,
+                height: di.height,
+                is_negotiable: di.is_negotiable ?? true,
                 base_price: Number(di.base_price || 0),
                 sample_images: Array.isArray(di.sample_images) ? di.sample_images : [],
               }))
@@ -419,9 +422,13 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 ...cp,
                 package_type: cp.package_type || cp.diet_type || 'veg',
                 price_per_plate: Number(cp.price_per_plate || 450),
+                is_negotiable: cp.is_negotiable ?? true,
               }))
             : (mockMatch?.catering_packages || []),
           catering_addons: mockMatch?.catering_addons || [],
+          catering_items: mockMatch?.catering_items || [],
+          photography_packages: mockMatch?.photography_packages || [],
+          dj_sound_packages: mockMatch?.dj_sound_packages || [],
           media_reels: data.media_reels && data.media_reels.length > 0 ? data.media_reels : (mockMatch?.media_reels || []),
           availability_calendar: mockMatch?.availability_calendar || [],
         };

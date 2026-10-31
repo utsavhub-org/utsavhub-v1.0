@@ -1705,6 +1705,78 @@ export default function VendorDashboardScreen({
 }
 
 const styles = StyleSheet.create({
+  ceremonyOfferChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1E1E24',
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  ceremonyOfferChipText: {
+    fontSize: 11,
+    color: '#E4E4E7',
+    fontWeight: '600',
+  },
+  vendorStartingPriceCard: {
+    backgroundColor: '#141418',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  vendorStartingPriceLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C5A059',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  vendorStartingPriceValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  vendorNegotiableBadge: {
+    backgroundColor: '#231E12',
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  vendorNegotiableBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C5A059',
+  },
+  vendorCategoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#C5A059',
+    letterSpacing: 0.5,
+  },
+  vendorMiniNegotiableTag: {
+    backgroundColor: '#14291E',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  vendorMiniNegotiableTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#09090B',

@@ -45,6 +45,7 @@ CREATE TABLE public.businesses (
     vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
     category TEXT NOT NULL CHECK (category IN ('venue', 'catering', 'decoration', 'photography', 'dj_sound')),
     name TEXT NOT NULL,
+    starting_price NUMERIC(10,2),
     cover_image_url TEXT,
     gallery_images TEXT[] DEFAULT '{}',
     is_active BOOLEAN DEFAULT true,
@@ -71,11 +72,13 @@ CREATE TABLE public.venue_details (
 CREATE TABLE public.decor_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
-    element_type TEXT NOT NULL CHECK (element_type IN ('mandapam', 'wayworks_entrance', 'reception_backdrop', 'haldi_mehendi', 'lighting_fx')),
+    element_type TEXT NOT NULL CHECK (element_type IN ('mandapam', 'wayworks_entrance', 'sangeeth', 'rata_muhurtham', 'kalagollu_sambaralu', 'home_decor', 'reception_backdrop', 'haldi_mehendi', 'lighting_fx')),
     title TEXT NOT NULL,
     dimensions TEXT,
+    height TEXT,
     flower_type TEXT,
     base_price NUMERIC(10,2) NOT NULL,
+    is_negotiable BOOLEAN DEFAULT true,
     sample_images TEXT[] DEFAULT '{}',
     is_customizable BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -361,13 +364,18 @@ VALUES
 ('22222222-2222-2222-2222-222222222222', true, 500, 1000, 4, 80, false, 125000.00, 120, 300),
 ('33333333-3333-3333-3333-333333333333', true, 350, 700, 2, 45, true, 85000.00, 80, 200);
 
--- 4. Decor Items
-INSERT INTO public.decor_items (business_id, element_type, title, dimensions, flower_type, base_price, sample_images, is_customizable)
+-- 4. Decor Items (Complete Telugu Ceremony Suites with Size, Height, Flowers, Negotiable Pricing)
+INSERT INTO public.decor_items (business_id, element_type, title, dimensions, height, flower_type, base_price, is_negotiable, sample_images, is_customizable)
 VALUES
-('66666666-6666-6666-6666-666666666666', 'mandapam', 'Tirumala Temple Gopuram Mandapam', '30x20 ft', 'Fresh Marigold & Jasmine', 125000.00, ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'], true),
-('66666666-6666-6666-6666-666666666666', 'mandapam', 'Pastel Blossom Floral Canopy Mandapam', '24x18 ft', 'Exotic Lilies & Carnations', 160000.00, ARRAY['https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=800&q=80'], true),
-('66666666-6666-6666-6666-666666666666', 'wayworks_entrance', '100ft Royal Archway Tunnel with Fairylights', '100 ft length', 'Floral Garlands & Fairy Lights', 45000.00, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true),
-('66666666-6666-6666-6666-666666666666', 'haldi_mehendi', 'Traditional Marigold Jhula & Photo-Booth', '15x12 ft', 'Pure Yellow & Orange Marigold', 28000.00, ARRAY['https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80'], true);
+('66666666-6666-6666-6666-666666666666', 'mandapam', 'Tirumala Temple Gopuram Mandapam', '30x20 ft', '16 ft Gopuram', 'Fresh Marigold, Jasmine & Bangalore Roses', 125000.00, true, ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'mandapam', 'Pastel Blossom Floral Canopy Mandapam', '24x18 ft', '14 ft Dome', 'Exotic Lilies, Carnations & Gypsophila', 160000.00, true, ARRAY['https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'mandapam', 'Royal Golden Chariot (Ratham) Mandapam', '36x24 ft', '18 ft Golden Dome', 'Orchids, Mogra & Gold Foliage', 195000.00, true, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'wayworks_entrance', '100ft Royal Archway Tunnel with Fairylights', '100 ft length', '12 ft Arch', 'Floral Garlands, Crystal Drops & Warm Fairy Lights', 45000.00, true, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'wayworks_entrance', 'Vedic Pathway with Brass Urulis & Hanging Diyas', '60 ft length', '10 ft Pathway', 'Temple Brass Urulis, Lotus & Marigold Chandeliers', 32000.00, true, ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'sangeeth', '32x16 ft Glamour Sangeeth Stage & Neon LED Arch', '32x16 ft', '14 ft Stage Truss', 'Neon Glow, Truss Lighting & Metallic Florals', 60000.00, true, ARRAY['https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'rata_muhurtham', 'Traditional Gauri Pooja Set with Brass Deepams', '16x12 ft', '10 ft Arch', 'Fresh Plantain Trunks, Mango Leaves & Yellow Sevanthi', 35000.00, true, ARRAY['https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'kalagollu_sambaralu', 'Haldi Mangalasnanam & Marigold Jhula Set', '18x14 ft', '11 ft Jhula Arch', 'Cascading Marigold Strings, Traditional Brass Gangalam', 30000.00, true, ARRAY['https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'home_decor', 'House Entrance Floral Toranam & Terrace Fairy Lighting', 'Custom House Perimeter', '2-Storey Facade', 'Traditional Mango Toranam, Marigold Swags & Golden String Lights', 25000.00, true, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true);
 
 -- 5. Catering Packages
 INSERT INTO public.catering_packages (business_id, package_name, diet_type, service_type, price_per_plate, min_guest_count, sweets_count, curries_count, menu_highlights, menu_pdf_url)

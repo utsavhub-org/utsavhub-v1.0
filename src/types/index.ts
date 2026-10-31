@@ -23,6 +23,9 @@ export interface Business {
   catering_items?: CateringItem[];
   decor_catalogues?: DecorCatalogue[];
   decor_items?: DecorItem[];
+  photography_packages?: PhotographyPackage[];
+  dj_sound_packages?: SoundDjPackage[];
+  starting_price?: number;
   media_reels?: MediaReel[];
   availability_calendar?: AvailabilitySlot[];
   vendor_pdfs?: VendorDocPdf[];
@@ -52,6 +55,7 @@ export interface CateringPackage {
   min_guest_count: number;
   menu_highlights: string[];
   menu_pdf_url: string;
+  is_negotiable?: boolean;
 }
 
 export interface CateringAddon {
@@ -62,7 +66,16 @@ export interface CateringAddon {
   description?: string;
 }
 
-export type DecorElementType = 'mandapam' | 'wayworks_entrance' | 'reception_backdrop' | 'haldi_mehendi' | 'lighting_fx';
+export type DecorElementType =
+  | 'mandapam'
+  | 'wayworks_entrance'
+  | 'sangeeth'
+  | 'rata_muhurtham'
+  | 'kalagollu_sambaralu'
+  | 'home_decor'
+  | 'reception_backdrop'
+  | 'haldi_mehendi'
+  | 'lighting_fx';
 
 export interface DecorItem {
   id: string;
@@ -70,10 +83,37 @@ export interface DecorItem {
   element_type: DecorElementType;
   title: string;
   dimensions?: string;
+  height?: string;
   flower_type?: string;
   base_price: number;
+  is_negotiable?: boolean;
   sample_images: string[];
   is_customizable?: boolean;
+}
+
+export interface PhotographyPackage {
+  id: string;
+  business_id: string;
+  title: string;
+  package_type: '3day_wedding' | 'pre_wedding' | 'muhurtham_traditional' | 'drone_led';
+  base_price: number;
+  is_negotiable?: boolean;
+  deliverables: string[];
+  crew_count?: string;
+  duration?: string;
+  sample_images?: string[];
+}
+
+export interface SoundDjPackage {
+  id: string;
+  business_id: string;
+  title: string;
+  package_type: 'sangeeth_dj' | 'barat_truck' | 'haldi_acoustic' | 'truss_pyro';
+  base_price: number;
+  is_negotiable?: boolean;
+  power_output_watts?: string;
+  equipment_highlights: string[];
+  sample_images?: string[];
 }
 
 export interface DecorCatalogue {
