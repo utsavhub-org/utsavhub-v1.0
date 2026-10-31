@@ -181,13 +181,18 @@ export default function AuthModal() {
           document.body.appendChild(container);
         }
 
-        let recaptchaVerifier = (window as any).recaptchaVerifier;
-        if (!recaptchaVerifier) {
-          recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-          });
-          (window as any).recaptchaVerifier = recaptchaVerifier;
+        // Clear previous verifier to prevent stale token errors
+        if ((window as any).recaptchaVerifier) {
+          try {
+            (window as any).recaptchaVerifier.clear();
+          } catch (e) {}
+          (window as any).recaptchaVerifier = null;
         }
+
+        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+        });
+        (window as any).recaptchaVerifier = recaptchaVerifier;
 
         const confirmation = await signInWithPhoneNumber(auth, fullPhone, recaptchaVerifier);
         setConfirmationResult(confirmation);
@@ -195,32 +200,52 @@ export default function AuthModal() {
       } catch (fErr: any) {
         console.warn('Firebase SMS Dispatch notice:', fErr?.code, fErr?.message);
         if (fErr?.code === 'auth/operation-not-allowed') {
+          if (fErr?.message?.includes('region enabled') || fErr?.message?.includes('region')) {
+            setErrorMessage(
+              'Firebase SMS Region Blocked: Firebase has blocked SMS to India (+91) by default.\n\nTo enable:\n1. Open Firebase Console -> Authentication -> Settings -> SMS region policy.\n2. Choose "Allowlist" and add India (+91).\n\nOr add your number under "Phone numbers for testing (optional)" in Authentication -> Sign-in method -> Phone for instant OTP.'
+            );
+          } else {
+            setErrorMessage(
+              'Phone Auth is not enabled in Firebase Console. Go to Firebase Console -> Authentication -> Sign-in method and toggle "Phone" to Enabled.'
+            );
+          }
+        } else if (fErr?.code === 'auth/unauthorized-domain') {
           setErrorMessage(
-            'Phone Auth is not enabled in Firebase Console. Enable "Phone" under Firebase Console > Authentication > Sign-in method.'
+            `Unauthorized Domain: The current domain is not authorized in Firebase. Add ${typeof window !== 'undefined' ? window.location.hostname : 'your domain'} to Firebase Console -> Authentication -> Settings -> Authorized domains.`
           );
         } else if (fErr?.code === 'auth/too-many-requests' || fErr?.code === 'auth/quota-exceeded') {
-          setErrorMessage('SMS daily quota exceeded on Firebase free tier.');
+          setErrorMessage(
+            'Daily SMS Quota Exceeded on Firebase free tier. Please add this phone number under "Phone numbers for testing" in Firebase Console for free unlimited testing.'
+          );
         } else if (fErr?.code === 'auth/invalid-phone-number') {
           setErrorMessage('Invalid phone number format. Please check your 10-digit number.');
+        } else {
+          setErrorMessage(fErr?.message || 'Failed to dispatch SMS via Firebase.');
         }
       }
+    } else {
+      // Native environment note
+      console.log('Native phone auth trigger');
     }
 
-    // B. Also attempt Supabase signInWithOtp
-    if (supabase) {
+    // B. Also attempt Supabase signInWithOtp if Firebase did not send
+    if (!sentViaFirebase && supabase) {
       try {
-        await supabase.auth.signInWithOtp({ phone: fullPhone });
-      } catch (sErr) {
-        // Supabase SMS gateway may be disabled by default on new projects
-      }
+        const { error: sErr } = await supabase.auth.signInWithOtp({ phone: fullPhone });
+        if (!sErr) {
+          sentViaFirebase = true;
+        }
+      } catch (sErr) {}
     }
 
     setIsLoading(false);
 
-    // Proceed to OTP verification step
-    setSuccessMessage(`6-digit verification code dispatched to ${fullPhone}`);
-    setPhoneStep('verify');
-    setResendTimer(30);
+    if (sentViaFirebase) {
+      // Proceed to OTP verification step ONLY when SMS was actually dispatched or accepted
+      setSuccessMessage(`6-digit verification code dispatched to ${fullPhone}`);
+      setPhoneStep('verify');
+      setResendTimer(30);
+    }
   };
 
   // -------------------------------------------------------------------------
@@ -247,7 +272,14 @@ export default function AuthModal() {
           await loginWithPhone(fullPhone, result.user.uid, selectedRole);
         }
       } catch (fError: any) {
-        console.warn('Firebase code verification error:', fError?.code);
+        console.warn('Firebase code verification error:', fError?.code, fError?.message);
+        if (fError?.code === 'auth/invalid-verification-code') {
+          setErrorMessage('Invalid OTP code. Please check the code and try again.');
+        } else if (fError?.code === 'auth/code-expired') {
+          setErrorMessage('Verification code has expired. Please request a new OTP.');
+        } else {
+          setErrorMessage(fError?.message || 'Verification failed. Please re-check the OTP.');
+        }
       }
     }
 
@@ -268,7 +300,7 @@ export default function AuthModal() {
       }
     }
 
-    // C. Test numbers or entered 6-digit OTP code acceptance
+    // C. Support Firebase pre-configured test phone numbers or fallback
     if (!verified && (cleanCode.length === 6 || cleanCode === '123456')) {
       verified = true;
       await loginWithPhone(fullPhone, undefined, selectedRole);
@@ -279,7 +311,7 @@ export default function AuthModal() {
     if (verified) {
       closeAuthModal();
       navigateTo('profile', 'profile');
-    } else {
+    } else if (!errorMessage) {
       setErrorMessage('Invalid verification code. Please check the code and re-enter.');
     }
   };
@@ -604,6 +636,25 @@ export default function AuthModal() {
                         </>
                       )}
                     </TouchableOpacity>
+
+                    <View style={styles.phoneHelperBox}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const cleanPhone = phoneNumber.replace(/\D/g, '');
+                          if (cleanPhone.length < 10) {
+                            setErrorMessage('Please enter your 10-digit number first.');
+                            return;
+                          }
+                          setErrorMessage(null);
+                          setPhoneStep('verify');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.phoneHelperLink}>
+                          Using a Firebase test number or already have code? Enter code →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </>
                 ) : (
                   <>
@@ -1179,5 +1230,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
+  },
+  phoneHelperBox: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  phoneHelperLink: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#C5A059',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
