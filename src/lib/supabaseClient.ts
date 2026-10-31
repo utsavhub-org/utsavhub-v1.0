@@ -203,6 +203,7 @@ export interface FilterParams {
   acOnly?: boolean;
   outsideCatering?: boolean;
   maxBudget?: number;
+  userId?: string;
 }
 
 export async function getFilteredBusinesses(filters: FilterParams): Promise<{
@@ -290,15 +291,12 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
 
   if (filters.category && filters.category !== 'all') {
     if (filters.category === 'wishlist') {
-      const wishlistIds = [
-        '11111111-1111-1111-1111-111111111111',
-        '22222222-2222-2222-2222-222222222222',
-        '33333333-3333-3333-3333-333333333333',
-        'venue-1',
-        'venue-2',
-        'decor-1',
-      ];
-      results = results.filter((b) => wishlistIds.includes(b.id));
+      if (filters.userId) {
+        const savedIds = await getUserWishlists(filters.userId);
+        results = results.filter((b) => savedIds.includes(b.id));
+      } else {
+        results = [];
+      }
     } else {
       results = results.filter((b) => b.category === filters.category);
     }
@@ -459,10 +457,39 @@ export async function createBookingInquiry(
 }
 
 // ---------------------------------------------------------------------------
-// VENDOR PORTAL: INQUIRY MANAGEMENT
+// VENDOR PORTAL: INQUIRY MANAGEMENT (REAL-TIME SUPABASE)
 // ---------------------------------------------------------------------------
 
 export async function getVendorInquiries(businessId: string): Promise<BookingInquiry[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('booking_inquiries')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data.map((d: any) => ({
+          id: d.id,
+          business_id: d.business_id,
+          customer_name: d.customer_name,
+          customer_phone: d.customer_phone,
+          event_date: d.event_date,
+          guest_count: d.guest_count,
+          total_estimated_amount: Number(d.final_customer_amount || d.vendor_base_amount || 0),
+          vendor_base_amount: Number(d.vendor_base_amount || 0),
+          admin_commission_percentage: Number(d.admin_commission_percentage || 10),
+          final_customer_amount: Number(d.final_customer_amount || 0),
+          status: d.status || 'pending',
+          notes: d.notes || '',
+          created_at: d.created_at,
+        }));
+      }
+    } catch (e) {
+      console.warn('Supabase getVendorInquiries notice:', e);
+    }
+  }
   return localInquiries.filter((inq) => inq.business_id === businessId);
 }
 
@@ -470,6 +497,22 @@ export async function updateInquiryStatus(
   inquiryId: string,
   newStatus: 'pending' | 'approved' | 'rejected' | 'completed'
 ): Promise<boolean> {
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('booking_inquiries')
+        .update({ status: newStatus })
+        .eq('id', inquiryId);
+
+      if (!error) {
+        const target = localInquiries.find((inq) => inq.id === inquiryId);
+        if (target) target.status = newStatus;
+        return true;
+      }
+    } catch (e) {
+      console.warn('Supabase updateInquiryStatus notice:', e);
+    }
+  }
   const target = localInquiries.find((inq) => inq.id === inquiryId);
   if (target) {
     target.status = newStatus;
@@ -479,8 +522,210 @@ export async function updateInquiryStatus(
 }
 
 // ---------------------------------------------------------------------------
+// CUSTOMER BOOKINGS & INQUIRIES (SUPABASE)
+// ---------------------------------------------------------------------------
+
+export async function getCustomerBookings(customerPhoneOrEmail: string): Promise<any[]> {
+  if (!customerPhoneOrEmail) return [];
+
+  if (supabase) {
+    try {
+      const cleanPhone = customerPhoneOrEmail.replace(/\D/g, '').slice(-10);
+      let query = supabase
+        .from('booking_inquiries')
+        .select(`
+          *,
+          businesses (
+            name,
+            cover_image_url,
+            category,
+            vendors (
+              city,
+              area_locality,
+              phone,
+              whatsapp_number
+            )
+          )
+        `);
+
+      if (cleanPhone.length >= 10) {
+        query = query.ilike('customer_phone', `%${cleanPhone}%`);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data.map((d: any) => {
+          const biz = Array.isArray(d.businesses) ? d.businesses[0] : d.businesses;
+          const v = biz?.vendors ? (Array.isArray(biz.vendors) ? biz.vendors[0] : biz.vendors) : null;
+          return {
+            id: d.id,
+            vendorId: d.business_id,
+            name: biz?.name || 'Grand Swarna Palace Convention Hall',
+            locality: v?.area_locality ? `${v.area_locality}, ${v.city}` : 'Visakhapatnam',
+            image: biz?.cover_image_url || 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+            date: d.event_date,
+            muhurthamLabel: 'Auspicious Muhurtham Date',
+            guests: d.guest_count,
+            amount: `₹${Number(d.final_customer_amount || d.vendor_base_amount || 0).toLocaleString('en-IN')}`,
+            status: d.status,
+            phone: v?.phone || '+91 98480 12345',
+            whatsapp: v?.whatsapp_number || '919848012345',
+            statusLabel:
+              d.status === 'approved'
+                ? 'Date Hold Confirmed'
+                : d.status === 'rejected'
+                ? 'Date Unavailable'
+                : 'Inquiry Under Review',
+            notes: d.notes,
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase getCustomerBookings notice:', e);
+    }
+  }
+
+  // Return fallback for demo phone if present
+  if (customerPhoneOrEmail.includes('98480') || customerPhoneOrEmail.includes('12345')) {
+    return localInquiries.map((d) => ({
+      id: d.id,
+      vendorId: d.business_id,
+      name: 'Grand Swarna Palace Convention Hall',
+      locality: 'Madhurawada, Visakhapatnam',
+      image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+      date: d.event_date,
+      muhurthamLabel: 'Shukla Paksha Auspicious Muhurtham',
+      guests: d.guest_count,
+      amount: `₹${Number(d.final_customer_amount || d.total_estimated_amount).toLocaleString('en-IN')}`,
+      status: d.status,
+      phone: '+91 98480 12345',
+      whatsapp: '919848012345',
+      statusLabel: d.status === 'approved' ? 'Date Hold Confirmed' : 'Inquiry Under Review',
+      notes: d.notes,
+    }));
+  }
+
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// CUSTOMER WISHLIST PERSISTENCE (SUPABASE)
+// ---------------------------------------------------------------------------
+
+export async function getUserWishlists(userId: string): Promise<string[]> {
+  if (!userId) return [];
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('user_wishlists')
+        .select('business_id')
+        .eq('user_id', userId);
+
+      if (!error && data) {
+        return data.map((d: any) => d.business_id);
+      }
+    } catch (e) {
+      console.warn('getUserWishlists notice:', e);
+    }
+  }
+  return [];
+}
+
+export async function toggleUserWishlist(userId: string, businessId: string): Promise<boolean> {
+  if (!userId || !businessId) return false;
+  if (supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('user_wishlists')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('business_id', businessId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('user_wishlists')
+          .delete()
+          .eq('user_id', userId)
+          .eq('business_id', businessId);
+        return false;
+      } else {
+        await supabase
+          .from('user_wishlists')
+          .insert({ user_id: userId, business_id: businessId });
+        return true;
+      }
+    } catch (e) {
+      console.warn('toggleUserWishlist notice:', e);
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // VENDOR PORTAL: PRICE UPDATE WITH ADMIN PERCENTAGE & APPROVAL WORKFLOW
 // ---------------------------------------------------------------------------
+
+export async function updateBusinessProfile(params: {
+  businessId: string;
+  name?: string;
+  phone?: string;
+  whatsapp?: string;
+  seating_capacity?: number;
+  floating_capacity?: number;
+  ac_rooms_count?: number;
+  parking_cars?: number;
+  outside_catering_allowed?: boolean;
+  is_ac?: boolean;
+  power_backup_kva?: number;
+}): Promise<boolean> {
+  if (supabase && params.businessId) {
+    try {
+      if (params.name) {
+        await supabase
+          .from('businesses')
+          .update({ name: params.name })
+          .eq('id', params.businessId);
+      }
+
+      const venueUpdates: any = {};
+      if (params.seating_capacity !== undefined) venueUpdates.seating_capacity = params.seating_capacity;
+      if (params.floating_capacity !== undefined) venueUpdates.floating_capacity = params.floating_capacity;
+      if (params.ac_rooms_count !== undefined) venueUpdates.ac_rooms_count = params.ac_rooms_count;
+      if (params.parking_cars !== undefined) venueUpdates.parking_cars = params.parking_cars;
+      if (params.outside_catering_allowed !== undefined) venueUpdates.outside_catering_allowed = params.outside_catering_allowed;
+      if (params.is_ac !== undefined) venueUpdates.is_ac = params.is_ac;
+      if (params.power_backup_kva !== undefined) venueUpdates.power_backup_kva = params.power_backup_kva;
+
+      if (Object.keys(venueUpdates).length > 0) {
+        await supabase
+          .from('venue_details')
+          .update(venueUpdates)
+          .eq('business_id', params.businessId);
+      }
+    } catch (e) {
+      console.warn('updateBusinessProfile live notice:', e);
+    }
+  }
+
+  const biz = MOCK_BUSINESSES.find((b) => b.id === params.businessId);
+  if (biz) {
+    if (params.name) biz.name = params.name;
+    if (params.phone) biz.phone = params.phone;
+    if (params.whatsapp) biz.whatsapp_number = params.whatsapp;
+    if (biz.venue_details) {
+      if (params.seating_capacity !== undefined) biz.venue_details.seating_capacity = params.seating_capacity;
+      if (params.floating_capacity !== undefined) biz.venue_details.floating_capacity = params.floating_capacity;
+      if (params.ac_rooms_count !== undefined) biz.venue_details.ac_rooms_count = params.ac_rooms_count;
+      if (params.parking_cars !== undefined) biz.venue_details.parking_capacity_cars = params.parking_cars;
+      if (params.outside_catering_allowed !== undefined) biz.venue_details.outside_catering_allowed = params.outside_catering_allowed;
+      if (params.is_ac !== undefined) biz.venue_details.is_ac = params.is_ac;
+      if (params.power_backup_kva !== undefined) biz.venue_details.power_backup_kva = params.power_backup_kva;
+    }
+  }
+  return true;
+}
 
 export async function getPriceRequestsForBusiness(businessId: string): Promise<PriceUpdateRequest[]> {
   return localPriceRequests.filter((r) => r.business_id === businessId);
@@ -813,60 +1058,10 @@ export async function addReelComment(
 // 3. PERSISTENT USER WISHLIST
 // ---------------------------------------------------------------------------
 
-let localWishlists: { [userId: string]: Set<string> } = {
-  'usr-cust-1': new Set(['11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333']),
-};
-
-export async function getUserWishlist(userId: string): Promise<string[]> {
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('user_wishlists')
-        .select('business_id')
-        .eq('user_id', userId);
-      if (!error && data) {
-        return data.map((d: any) => d.business_id);
-      }
-    } catch (e) {
-      console.warn('Supabase fetch wishlist notice:', e);
-    }
-  }
-  return Array.from(localWishlists[userId] || []);
-}
-
-export async function toggleUserWishlist(userId: string, businessId: string): Promise<boolean> {
-  if (!localWishlists[userId]) {
-    localWishlists[userId] = new Set();
-  }
-
-  const isSaved = localWishlists[userId].has(businessId);
-
-  if (isSaved) {
-    localWishlists[userId].delete(businessId);
-    if (supabase) {
-      try {
-        await supabase
-          .from('user_wishlists')
-          .delete()
-          .eq('user_id', userId)
-          .eq('business_id', businessId);
-      } catch (e) {}
-    }
-    return false;
-  } else {
-    localWishlists[userId].add(businessId);
-    if (supabase) {
-      try {
-        await supabase
-          .from('user_wishlists')
-          .insert({ user_id: userId, business_id: businessId });
-      } catch (e) {}
-    }
-    return true;
-  }
-}
-
+// 3. PERSISTENT USER WISHLIST (SUPABASE ALIAS)
 // ---------------------------------------------------------------------------
+export const getUserWishlist = getUserWishlists;
+
 // 4. LIVE SUPPORT CHAT
 // ---------------------------------------------------------------------------
 

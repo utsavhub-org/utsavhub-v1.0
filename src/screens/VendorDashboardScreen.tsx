@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   Modal,
   Linking,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from 'react-native';
 import {
   Building,
   Video,
-  Image as ImageIcon,
   FileText,
   DollarSign,
   Calendar,
@@ -39,43 +39,37 @@ import {
   Utensils,
   Flower2,
   Eye,
-  EyeOff,
-  Layers,
-  FolderPlus,
-  SlidersHorizontal,
-  Edit,
+  ShieldCheck,
+  MessageCircle,
+  MapPin,
+  Users,
+  Wind,
+  Car,
+  Zap,
+  Sliders,
+  ChevronRight,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import {
   getBusinessById,
   getPriceRequestsForBusiness,
   submitPriceUpdateRequest,
-  approvePriceRequest,
-  rejectPriceRequest,
   addVendorReel,
-  addVendorPhoto,
-  removeVendorPhoto,
-  addVendorPdf,
   getVendorInquiries,
   updateInquiryStatus,
+  updateBusinessProfile,
   DEFAULT_ADMIN_PERCENTAGE,
-  getVendorBusinesses,
-  toggleBusinessActive,
-  createVendorBusiness,
-  getCateringItems,
-  addCateringItem,
-  updateCateringItemNegotiablePrice,
 } from '../lib/supabaseClient';
 import {
   Business,
   PriceUpdateRequest,
-  VendorDocPdf,
   MediaReel,
   BookingInquiry,
-  CateringItem,
 } from '../types';
 import ReelModal from '../components/ReelModal';
 import { THEME } from '../theme/colors';
+import { playButtonClick, playTabPop, playActionSuccess } from '../lib/soundManager';
 
 interface VendorDashboardScreenProps {
   onSwitchToCustomer: () => void;
@@ -89,1088 +83,1039 @@ export default function VendorDashboardScreen({
   const { currentUser, logout, openAuthModal } = useAuth();
   const businessId = currentUser?.businessId || '11111111-1111-1111-1111-111111111111';
 
-  const [business, setBusiness] = useState<Business | null>(null);
+  // Navigation & View state
+  const [activeTab, setActiveTab] = useState<'inquiries' | 'pricing' | 'media' | 'profile'>('inquiries');
+  const [inquiryFilter, setInquiryFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined'>('all');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'businesses' | 'catering' | 'pricing' | 'media' | 'inquiries'>('businesses');
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Multi-Business State
-  const [vendorBusinesses, setVendorBusinesses] = useState<Business[]>([]);
-  const [showAddBusinessModal, setShowAddBusinessModal] = useState(false);
-  const [newBizName, setNewBizName] = useState('');
-  const [newBizCategory, setNewBizCategory] = useState<'venue' | 'catering' | 'decoration' | 'photography'>('catering');
-  const [newBizCover, setNewBizCover] = useState('https://images.unsplash.com/photo-1555244162-803834f70033?w=800');
-
-  // Catering Items State
-  const [cateringItems, setCateringItems] = useState<CateringItem[]>([]);
-  const [showAddCateringModal, setShowAddCateringModal] = useState(false);
-  const [newCatItemName, setNewCatItemName] = useState('');
-  const [newCatItemCategory, setNewCatItemCategory] = useState<'starter' | 'curry' | 'rice' | 'sweet' | 'live_stall'>('sweet');
-  const [newCatItemIsVeg, setNewCatItemIsVeg] = useState(true);
-  const [newCatItemBasePrice, setNewCatItemBasePrice] = useState('75');
-  const [newCatItemNegotiatedPrice, setNewCatItemNegotiatedPrice] = useState('65');
-
-  // Edit Negotiated Price State
-  const [editingItem, setEditingItem] = useState<CateringItem | null>(null);
-  const [updatedNegotiatedPrice, setUpdatedNegotiatedPrice] = useState('');
-
-  // Pricing State
+  // Business data
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [inquiries, setInquiries] = useState<BookingInquiry[]>([]);
   const [priceRequests, setPriceRequests] = useState<PriceUpdateRequest[]>([]);
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [selectedItemType, setSelectedItemType] = useState<'venue_rental' | 'catering_plate' | 'decor_package'>('venue_rental');
-  const [proposedBasePrice, setProposedBasePrice] = useState<string>('190000');
-  const [adminPercentage, setAdminPercentage] = useState<number>(DEFAULT_ADMIN_PERCENTAGE);
-  const [priceNotes, setPriceNotes] = useState<string>('Peak Muhurtham season pricing update.');
+  const [isStoreActive, setIsStoreActive] = useState(true);
+
+  // Reel modal player
+  const [selectedReel, setSelectedReel] = useState<MediaReel | null>(null);
+
+  // Price Update Modal State
+  const [priceModalVisible, setPriceModalVisible] = useState(false);
+  const [priceItemType, setPriceItemType] = useState<'venue_rental' | 'catering_plate' | 'decor_package'>('venue_rental');
+  const [priceItemName, setPriceItemName] = useState('AC Main Hall 24-Hr Tariff');
+  const [currentBasePrice, setCurrentBasePrice] = useState('175000');
+  const [proposedPrice, setProposedPrice] = useState('190000');
+  const [priceNotes, setPriceNotes] = useState('');
   const [submittingPrice, setSubmittingPrice] = useState(false);
 
-  // Media State
-  const [activeReelModal, setActiveReelModal] = useState<MediaReel | null>(null);
-  const [showReelModal, setShowReelModal] = useState(false);
-  const [newReelTitle, setNewReelTitle] = useState('New Hall Lighting & Dining Walkthrough');
-  const [newReelUrl, setNewReelUrl] = useState('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
-  const [newReelThumb, setNewReelThumb] = useState('https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80');
+  // Add Reel Modal State
+  const [reelModalVisible, setReelModalVisible] = useState(false);
+  const [reelTitle, setReelTitle] = useState('');
+  const [reelVideoUrl, setReelVideoUrl] = useState('');
+  const [reelThumbUrl, setReelThumbUrl] = useState('');
+  const [submittingReel, setSubmittingReel] = useState(false);
 
-  // Photo Upload State
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [newPhotoUrl, setNewPhotoUrl] = useState('https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80');
+  // Edit Profile / Specs Modal State
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [bizName, setBizName] = useState('');
+  const [seatingCap, setSeatingCap] = useState('600');
+  const [floatingCap, setFloatingCap] = useState('1200');
+  const [roomsCount, setRoomsCount] = useState('8');
+  const [parkingCars, setParkingCars] = useState('100');
+  const [outsideFood, setOutsideFood] = useState(true);
+  const [powerBackup, setPowerBackup] = useState('125');
+  const [phoneContact, setPhoneContact] = useState('+91 98480 12345');
+  const [whatsappContact, setWhatsappContact] = useState('+91 98480 12345');
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  // PDF Upload State
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [newPdfTitle, setNewPdfTitle] = useState('Royal Andhra Wedding Catering Menu 2026.pdf');
-  const [newPdfType, setNewPdfType] = useState<'menu' | 'lookbook' | 'brochure'>('menu');
-  const [newPdfUrl, setNewPdfUrl] = useState('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
-
-  // Inquiries State
-  const [inquiries, setInquiries] = useState<BookingInquiry[]>([]);
-
-  const loadData = async () => {
+  // Fetch all business data
+  const loadDashboardData = async () => {
     setLoading(true);
-    const biz = await getBusinessById(businessId);
-    setBusiness(biz);
+    try {
+      const [bizData, inqs, pReqs] = await Promise.all([
+        getBusinessById(businessId),
+        getVendorInquiries(businessId),
+        getPriceRequestsForBusiness(businessId),
+      ]);
 
-    const bizes = await getVendorBusinesses(currentUser?.phone || businessId);
-    setVendorBusinesses(bizes);
+      if (bizData) {
+        setBusiness(bizData);
+        setBizName(bizData.name);
+        setPhoneContact(bizData.phone || '+91 98480 12345');
+        setWhatsappContact(bizData.whatsapp_number || '+91 98480 12345');
+        if (bizData.venue_details) {
+          const vd = bizData.venue_details;
+          setSeatingCap(String(vd.seating_capacity || 600));
+          setFloatingCap(String(vd.floating_capacity || 1200));
+          setRoomsCount(String(vd.ac_rooms_count || 8));
+          setParkingCars(String(vd.parking_capacity_cars || 100));
+          setOutsideFood(vd.outside_catering_allowed ?? true);
+          setPowerBackup(String(vd.power_backup_kva || 125));
+          setCurrentBasePrice(String(vd.base_rental_price || 175000));
+        }
+      }
 
-    const catItems = await getCateringItems('33333333-3333-3333-3333-333333333333');
-    setCateringItems(catItems);
-
-    const requests = await getPriceRequestsForBusiness(businessId);
-    setPriceRequests(requests);
-
-    const inqs = await getVendorInquiries(businessId);
-    setInquiries(inqs);
-    setLoading(false);
-  };
-
-  const handleToggleBusinessActive = async (bId: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
-    await toggleBusinessActive(bId, newStatus);
-    setVendorBusinesses((prev) =>
-      prev.map((b) => (b.id === bId ? { ...b, is_active: newStatus } : b))
-    );
-  };
-
-  const handleCreateBusiness = async () => {
-    if (!newBizName.trim()) {
-      Alert.alert('Required', 'Please enter a business or service name.');
-      return;
+      setInquiries(inqs);
+      setPriceRequests(pReqs);
+    } catch (err) {
+      console.warn('Dashboard load error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    const created = await createVendorBusiness({
-      name: newBizName.trim(),
-      category: newBizCategory,
-      cover_image_url: newBizCover,
-      city: currentUser?.selectedCity || 'Visakhapatnam',
-      phone: currentUser?.phone || '+91 98480 12345',
-      whatsapp_number: currentUser?.phone || '+91 98480 12345',
-    });
-    if (created) {
-      setVendorBusinesses((prev) => [created, ...prev]);
-      setShowAddBusinessModal(false);
-      setNewBizName('');
-      Alert.alert('Business Added', 'New business offering added and published to Supabase.');
-    }
-  };
-
-  const handleAddCateringItem = async () => {
-    if (!newCatItemName.trim()) {
-      Alert.alert('Required', 'Please enter the dish name.');
-      return;
-    }
-    const baseP = parseFloat(newCatItemBasePrice) || 50;
-    const negP = parseFloat(newCatItemNegotiatedPrice) || baseP;
-
-    const added = await addCateringItem({
-      business_id: '33333333-3333-3333-3333-333333333333',
-      category: newCatItemCategory,
-      item_name: newCatItemName.trim(),
-      is_veg: newCatItemIsVeg,
-      base_price_per_plate: baseP,
-      negotiable_price_per_plate: negP,
-      is_available: true,
-    });
-
-    if (added) {
-      setCateringItems((prev) => [added, ...prev]);
-      setShowAddCateringModal(false);
-      setNewCatItemName('');
-      Alert.alert('Menu Item Added', 'New item added to your catering menu.');
-    }
-  };
-
-  const handleSaveNegotiatedPrice = async () => {
-    if (!editingItem) return;
-    const priceNum = parseFloat(updatedNegotiatedPrice);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert('Invalid Price', 'Please enter a valid negotiated price.');
-      return;
-    }
-
-    await updateCateringItemNegotiablePrice(editingItem.id, priceNum);
-    setCateringItems((prev) =>
-      prev.map((i) =>
-        i.id === editingItem.id ? { ...i, negotiable_price_per_plate: priceNum } : i
-      )
-    );
-    setEditingItem(null);
-    Alert.alert('Price Updated', 'Negotiated price after customer discussion has been saved.');
   };
 
   useEffect(() => {
-    loadData();
+    loadDashboardData();
   }, [businessId]);
 
-  // Calculations for Price with Admin Percentage
-  const numBasePrice = parseFloat(proposedBasePrice) || 0;
-  const adminMarkup = Math.round(numBasePrice * (adminPercentage / 100));
-  const finalPriceToCustomer = numBasePrice + adminMarkup;
+  // Derived Performance Metrics
+  const pendingInquiriesCount = useMemo(() => {
+    return inquiries.filter((i) => i.status === 'pending').length;
+  }, [inquiries]);
 
-  const handleSubmitPrice = async () => {
-    if (!numBasePrice || numBasePrice <= 0) {
-      Alert.alert('Invalid Price', 'Please enter a valid base price.');
+  const pipelineValue = useMemo(() => {
+    return inquiries
+      .filter((i) => i.status !== 'declined' && i.status !== 'rejected')
+      .reduce((sum, item) => sum + (item.final_customer_amount || item.vendor_base_amount || 0), 0);
+  }, [inquiries]);
+
+  const filteredInquiries = useMemo(() => {
+    if (inquiryFilter === 'all') return inquiries;
+    if (inquiryFilter === 'pending') return inquiries.filter((i) => i.status === 'pending');
+    if (inquiryFilter === 'confirmed') return inquiries.filter((i) => i.status === 'confirmed' || i.status === 'approved');
+    if (inquiryFilter === 'declined') return inquiries.filter((i) => i.status === 'declined' || i.status === 'rejected');
+    return inquiries;
+  }, [inquiries, inquiryFilter]);
+
+  // Inquiry Status Handler
+  const handleInquiryStatus = async (inquiryId: string, newStatus: 'confirmed' | 'declined') => {
+    playButtonClick();
+    const success = await updateInquiryStatus(inquiryId, newStatus);
+    if (success) {
+      playActionSuccess();
+      setInquiries((prev) =>
+        prev.map((inq) => (inq.id === inquiryId ? { ...inq, status: newStatus } : inq))
+      );
+    } else {
+      Alert.alert('Notice', 'Unable to update inquiry status. Please try again.');
+    }
+  };
+
+  // Direct Communication Handlers
+  const handleWhatsAppCustomer = (phone: string, customerName: string, date: string) => {
+    playButtonClick();
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const fullNumber = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    const text = `Namaste ${customerName}, this is ${business?.name || 'UtsavHub Partner'}. Thank you for your inquiry for the auspicious Muhurtham on ${date}. We have reviewed your request and would love to assist you.`;
+    const url = `whatsapp://send?phone=${fullNumber}&text=${encodeURIComponent(text)}`;
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://wa.me/${fullNumber}?text=${encodeURIComponent(text)}`);
+    });
+  };
+
+  const handleCallCustomer = (phone: string) => {
+    playButtonClick();
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${cleanPhone}`);
+  };
+
+  // Submit Price Update Request
+  const handleSubmitPriceChange = async () => {
+    if (!proposedPrice || isNaN(Number(proposedPrice))) {
+      Alert.alert('Invalid Price', 'Please enter a valid numeric proposed price.');
       return;
     }
 
     setSubmittingPrice(true);
-    const currentPrice =
-      selectedItemType === 'venue_rental'
-        ? business?.venue_details?.base_rental_price || 175000
-        : selectedItemType === 'catering_plate'
-        ? business?.catering_packages?.[0]?.price_per_plate || 450
-        : business?.decor_catalogues?.[0]?.base_price || 140000;
+    playButtonClick();
 
-    const itemName =
-      selectedItemType === 'venue_rental'
-        ? 'Main AC Kalyana Mandapam (Full Day)'
-        : selectedItemType === 'catering_plate'
-        ? 'Per Plate Wedding Buffet Package'
-        : 'Grand Floral Mandapam Decor';
+    try {
+      const newReq = await submitPriceUpdateRequest({
+        businessId,
+        businessName: business?.name || 'Verified Partner',
+        itemType: priceItemType,
+        itemName: priceItemName,
+        currentPrice: Number(currentBasePrice),
+        proposedBasePrice: Number(proposedPrice),
+        adminPercentage: DEFAULT_ADMIN_PERCENTAGE,
+        notes: priceNotes || 'Vendor annual tariff review',
+      });
 
-    await submitPriceUpdateRequest({
-      businessId,
-      businessName: business?.name || 'Convention Hall Partner',
-      itemType: selectedItemType,
-      itemName,
-      currentPrice,
-      proposedBasePrice: numBasePrice,
-      adminPercentage,
-      notes: priceNotes,
-    });
-
-    await loadData();
-    setSubmittingPrice(false);
-    setShowPriceModal(false);
-    Alert.alert(
-      'Price Submitted for Approval',
-      `Your base quote of ₹${numBasePrice.toLocaleString('en-IN')} with ${adminPercentage}% platform fee (Customer Total: ₹${finalPriceToCustomer.toLocaleString('en-IN')}) has been sent for admin review.`
-    );
+      playActionSuccess();
+      setPriceRequests((prev) => [newReq, ...prev]);
+      setPriceModalVisible(false);
+      setPriceNotes('');
+      Alert.alert(
+        'Tariff Update Submitted',
+        `Your proposed price of ₹${Number(proposedPrice).toLocaleString('en-IN')} has been sent to the UtsavHub verification team. It will appear on your public listing once verified.`
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Failed to submit price update request.');
+    } finally {
+      setSubmittingPrice(false);
+    }
   };
 
-  const handleApprovePrice = async (reqId: string) => {
-    await approvePriceRequest(reqId);
-    await loadData();
-    Alert.alert('Approved & Published', 'The new price with admin markup is now active on the customer listing!');
-  };
-
-  const handleRejectPrice = async (reqId: string) => {
-    await rejectPriceRequest(reqId, 'Price exceeds current seasonal benchmark');
-    await loadData();
-  };
-
-  // Media Actions
+  // Submit 4K Reel
   const handleAddReel = async () => {
-    if (!newReelTitle.trim()) return;
-    await addVendorReel(businessId, {
-      title: newReelTitle,
-      videoUrl: newReelUrl,
-      thumbnailUrl: newReelThumb,
-      durationSeconds: 26,
-    });
-    await loadData();
-    setShowReelModal(false);
-    Alert.alert('Reel Uploaded', 'Your video reel has been added to your listing.');
+    if (!reelTitle.trim() || !reelVideoUrl.trim()) {
+      Alert.alert('Missing Details', 'Please provide a Title and 4K Video URL.');
+      return;
+    }
+
+    setSubmittingReel(true);
+    playButtonClick();
+
+    try {
+      const created = await addVendorReel(businessId, {
+        title: reelTitle.trim(),
+        videoUrl: reelVideoUrl.trim(),
+        thumbnailUrl: reelThumbUrl.trim() || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
+        durationSeconds: 30,
+      });
+
+      if (created) {
+        playActionSuccess();
+        if (business) {
+          const updatedReels = [created, ...(business.media_reels || [])];
+          setBusiness({ ...business, media_reels: updatedReels });
+        }
+        setReelModalVisible(false);
+        setReelTitle('');
+        setReelVideoUrl('');
+        setReelThumbUrl('');
+        Alert.alert('4K Reel Added', 'Your video walkthrough is now live on your profile.');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to add video reel.');
+    } finally {
+      setSubmittingReel(false);
+    }
   };
 
-  const handleAddPhoto = async () => {
-    if (!newPhotoUrl.trim()) return;
-    await addVendorPhoto(businessId, newPhotoUrl);
-    await loadData();
-    setShowPhotoModal(false);
-    Alert.alert('Photo Added', 'New venue photo has been published to your gallery.');
-  };
+  // Save Hall Specs & Profile
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    playButtonClick();
 
-  const handleRemovePhoto = async (url: string) => {
-    await removeVendorPhoto(businessId, url);
-    await loadData();
-  };
+    try {
+      await updateBusinessProfile({
+        businessId,
+        name: bizName,
+        phone: phoneContact,
+        whatsapp: whatsappContact,
+        seating_capacity: Number(seatingCap),
+        floating_capacity: Number(floatingCap),
+        ac_rooms_count: Number(roomsCount),
+        parking_cars: Number(parkingCars),
+        outside_catering_allowed: outsideFood,
+        power_backup_kva: Number(powerBackup),
+      });
 
-  const handleAddPdf = async () => {
-    if (!newPdfTitle.trim()) return;
-    await addVendorPdf(businessId, {
-      title: newPdfTitle,
-      pdfUrl: newPdfUrl,
-      type: newPdfType,
-      fileSizeKb: 680,
-    });
-    await loadData();
-    setShowPdfModal(false);
-    Alert.alert('PDF Document Uploaded', 'The PDF is now available for customers to view and download.');
+      playActionSuccess();
+      if (business) {
+        setBusiness({
+          ...business,
+          name: bizName,
+          phone: phoneContact,
+          whatsapp_number: whatsappContact,
+          venue_details: business.venue_details
+            ? {
+                ...business.venue_details,
+                seating_capacity: Number(seatingCap),
+                floating_capacity: Number(floatingCap),
+                ac_rooms_count: Number(roomsCount),
+                parking_capacity_cars: Number(parkingCars),
+                outside_catering_allowed: outsideFood,
+                power_backup_kva: Number(powerBackup),
+              }
+            : undefined,
+        });
+      }
+      setProfileModalVisible(false);
+      Alert.alert('Profile Updated', 'Hall specifications saved successfully to database.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update specifications.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
-
-  // Inquiries Actions
-  const handleUpdateInquiry = async (inqId: string, status: 'approved' | 'rejected') => {
-    await updateInquiryStatus(inqId, status);
-    await loadData();
-    Alert.alert(
-      status === 'approved' ? 'Booking Hold Approved' : 'Booking Hold Declined',
-      `Inquiry ${inqId} status updated to ${status}.`
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#D4AF37" />
-        <Text style={styles.loadingText}>Loading Vendor Partner Portal...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
-      {/* Top Vendor Status Header */}
-      <View style={styles.topHeader}>
-        <View style={styles.bizInfoRow}>
-          <View style={styles.bizAvatar}>
-            <Image
-              source={require('../../assets/1.png')}
-              style={styles.bizAvatarImg}
-              resizeMode="contain"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.badgeRow}>
-              <View style={styles.partnerBadge}>
-                <Sparkles size={11} color={THEME.colors.goldDark} />
-                <Text style={styles.partnerBadgeText}>VERIFIED VENDOR PARTNER</Text>
-              </View>
+      {/* 1. EXECUTIVE OBSIDIAN TOP BAR */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <Image
+            source={{
+              uri:
+                business?.cover_image_url ||
+                'https://images.unsplash.com/photo-1545232979-fbf656513364?auto=format&fit=crop&w=400&q=80',
+            }}
+            style={styles.bizAvatar}
+          />
+          <View style={styles.bizInfo}>
+            <View style={styles.bizNameRow}>
+              <Text style={styles.bizName} numberOfLines={1}>
+                {business?.name || 'Sri Venkateswara Grand Palace'}
+              </Text>
+              <ShieldCheck size={16} color="#C5A059" />
             </View>
-            <Text style={styles.bizName} numberOfLines={1}>
-              {business?.name || 'Grand Swarna Palace'}
-            </Text>
-            <Text style={styles.bizSub}>
-              {business?.area_locality}, {business?.city}
-            </Text>
+            <View style={styles.partnerBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.partnerBadgeText}>Verified Partner Portal</Text>
+            </View>
           </View>
         </View>
 
-        {/* Quick Action Toolbar */}
-        <View style={styles.quickActionsBar}>
+        <View style={styles.topBarActions}>
           <TouchableOpacity
             style={styles.previewBtn}
-            onPress={() => onPreviewPublicListing(businessId)}
-            activeOpacity={0.7}
+            onPress={() => {
+              playButtonClick();
+              onPreviewPublicListing(businessId);
+            }}
+            activeOpacity={0.8}
           >
-            <ExternalLink size={14} color="#0F172A" />
-            <Text style={styles.previewBtnText}>Customer View</Text>
+            <Eye size={15} color="#C5A059" />
+            <Text style={styles.previewBtnText}>Preview</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.switchModeBtn}
-            onPress={onSwitchToCustomer}
-            activeOpacity={0.7}
+            style={styles.switchRoleBtn}
+            onPress={() => {
+              playButtonClick();
+              onSwitchToCustomer();
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel="Switch to Customer Mode"
           >
-            <UserCheck size={14} color="#059669" />
-            <Text style={styles.switchModeBtnText}>Switch to Bride/Groom</Text>
+            <UserCheck size={16} color="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.logoutBtn}
-            onPress={openAuthModal}
-            activeOpacity={0.7}
+            onPress={() => {
+              playButtonClick();
+              logout();
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel="Sign Out"
           >
-            <LogOut size={14} color="#64748B" />
+            <LogOut size={16} color="#EF4444" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Segmented Navigation Tabs */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabNavScroll}
-      >
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'businesses' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('businesses')}
-          activeOpacity={0.7}
-        >
-          <Layers size={15} color={activeTab === 'businesses' ? '#0F172A' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'businesses' && styles.tabTextActive]}>
-            My Businesses ({vendorBusinesses.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'catering' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('catering')}
-          activeOpacity={0.7}
-        >
-          <Utensils size={15} color={activeTab === 'catering' ? '#0F172A' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'catering' && styles.tabTextActive]}>
-            Menu & Decor
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'pricing' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('pricing')}
-          activeOpacity={0.7}
-        >
-          <DollarSign size={15} color={activeTab === 'pricing' ? '#0F172A' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'pricing' && styles.tabTextActive]}>
-            Pricing
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'media' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('media')}
-          activeOpacity={0.7}
-        >
-          <Video size={15} color={activeTab === 'media' ? '#0F172A' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'media' && styles.tabTextActive]}>
-            Reels, Pics & PDFs
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'inquiries' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('inquiries')}
-          activeOpacity={0.7}
-        >
-          <Calendar size={15} color={activeTab === 'inquiries' ? '#0F172A' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'inquiries' && styles.tabTextActive]}>
-            Holds ({inquiries.filter((i) => i.status === 'pending').length})
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Main Tab Content */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* ================================================================= */}
-        {/* TAB 0: MULTI-BUSINESS MANAGEMENT & VISIBILITY ORGANIZER          */}
-        {/* ================================================================= */}
-        {activeTab === 'businesses' && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={styles.sectionTitle}>My Businesses & Offerings</Text>
-                <Text style={styles.sectionSub}>
-                  Organize which businesses are publicly shown in search results
-                </Text>
+        {/* 2. EXECUTIVE PERFORMANCE KPI GRID */}
+        <View style={styles.kpiGrid}>
+          {/* KPI 1: Active Inquiries */}
+          <TouchableOpacity
+            style={[styles.kpiCard, activeTab === 'inquiries' && styles.kpiCardActive]}
+            onPress={() => {
+              playTabPop();
+              setActiveTab('inquiries');
+            }}
+            activeOpacity={0.85}
+          >
+            <View style={styles.kpiHeaderRow}>
+              <Text style={styles.kpiLabel}>ACTIVE HOLDS</Text>
+              <View style={styles.kpiIconWrapAmber}>
+                <Clock size={14} color="#F59E0B" />
               </View>
-              <TouchableOpacity
-                style={styles.addPrimaryBtn}
-                onPress={() => setShowAddBusinessModal(true)}
-                activeOpacity={0.85}
-              >
-                <Plus size={15} color="#FFFFFF" />
-                <Text style={styles.addPrimaryBtnText}>Add Business</Text>
-              </TouchableOpacity>
             </View>
+            <Text style={styles.kpiValue}>{inquiries.length}</Text>
+            <View style={styles.kpiSubRow}>
+              <View style={styles.pulseDotAmber} />
+              <Text style={styles.kpiSubAmber}>{pendingInquiriesCount} Require Action</Text>
+            </View>
+          </TouchableOpacity>
 
-            {vendorBusinesses.map((b) => (
-              <View key={b.id} style={styles.businessCard}>
-                <Image source={{ uri: b.cover_image_url }} style={styles.bizCardImg} />
-                <View style={styles.bizCardBody}>
-                  <View style={styles.bizCardHeader}>
-                    <Text style={styles.bizCardTitle}>{b.name}</Text>
-                    <View style={styles.bizCategoryBadge}>
-                      <Text style={styles.bizCategoryText}>{b.category.toUpperCase()}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.bizCardLoc}>
-                    {b.area_locality}, {b.city}
-                  </Text>
-
-                  {/* Visibility Organizer Toggle */}
-                  <View style={styles.visibilityToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.visibilityLabel}>Listing Visibility:</Text>
-                      <Text
-                        style={[
-                          styles.visibilityStatus,
-                          b.is_active ? styles.statusActive : styles.statusHidden,
-                        ]}
-                      >
-                        {b.is_active ? 'Visible to Customers' : 'Hidden from Explore'}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.toggleBtn,
-                        b.is_active ? styles.toggleBtnActive : styles.toggleBtnInactive,
-                      ]}
-                      onPress={() => handleToggleBusinessActive(b.id, Boolean(b.is_active))}
-                      activeOpacity={0.8}
-                    >
-                      {b.is_active ? (
-                        <>
-                          <Eye size={14} color="#059669" />
-                          <Text style={styles.toggleBtnTextActive}>Active</Text>
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff size={14} color="#64748B" />
-                          <Text style={styles.toggleBtnTextInactive}>Show</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
+          {/* KPI 2: Pipeline Revenue */}
+          <View style={styles.kpiCard}>
+            <View style={styles.kpiHeaderRow}>
+              <Text style={styles.kpiLabel}>PIPELINE VALUE</Text>
+              <View style={styles.kpiIconWrapGold}>
+                <DollarSign size={14} color="#C5A059" />
               </View>
-            ))}
+            </View>
+            <Text style={styles.kpiValue}>
+              ₹{(pipelineValue / 100000).toFixed(1)}L
+            </Text>
+            <Text style={styles.kpiSubMuted}>Confirmed & Pending</Text>
           </View>
-        )}
 
-        {/* ================================================================= */}
-        {/* TAB 0.5: ITEMIZED CATERING & DISCUSSION PRICING                   */}
-        {/* ================================================================= */}
-        {activeTab === 'catering' && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={styles.sectionTitle}>Catering Menu Items</Text>
-                <Text style={styles.sectionSub}>
-                  Itemized dishes with base & customizable negotiation prices
-                </Text>
+          {/* KPI 3: Store Rating */}
+          <View style={styles.kpiCard}>
+            <View style={styles.kpiHeaderRow}>
+              <Text style={styles.kpiLabel}>STORE RATING</Text>
+              <View style={styles.kpiIconWrapGreen}>
+                <Sparkles size={14} color="#10B981" />
               </View>
-              <TouchableOpacity
-                style={styles.addPrimaryBtn}
-                onPress={() => setShowAddCateringModal(true)}
-                activeOpacity={0.85}
-              >
-                <Plus size={15} color="#FFFFFF" />
-                <Text style={styles.addPrimaryBtnText}>Add Dish</Text>
-              </TouchableOpacity>
             </View>
+            <Text style={styles.kpiValue}>4.9 ★</Text>
+            <Text style={styles.kpiSubGreen}>99% Response Rate</Text>
+          </View>
 
-            {cateringItems.map((item) => (
-              <View key={item.id} style={styles.cateringItemCard}>
-                <View style={styles.catItemRow}>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View
-                        style={[
-                          styles.vegIndicator,
-                          item.is_veg ? styles.vegGreen : styles.nonVegRed,
-                        ]}
-                      />
-                      <Text style={styles.catItemName}>{item.item_name}</Text>
-                    </View>
-                    <Text style={styles.catItemCategory}>
-                      Category: {item.category.toUpperCase()}
+          {/* KPI 4: Listing Status */}
+          <TouchableOpacity
+            style={styles.kpiCard}
+            onPress={() => {
+              playButtonClick();
+              setIsStoreActive(!isStoreActive);
+            }}
+            activeOpacity={0.85}
+          >
+            <View style={styles.kpiHeaderRow}>
+              <Text style={styles.kpiLabel}>STORE STATUS</Text>
+              <View
+                style={[
+                  styles.kpiIconWrapStatus,
+                  { backgroundColor: isStoreActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statusIndicatorDot,
+                    { backgroundColor: isStoreActive ? '#10B981' : '#EF4444' },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.kpiValueStatus,
+                { color: isStoreActive ? '#10B981' : '#EF4444' },
+              ]}
+            >
+              {isStoreActive ? 'LIVE' : 'PAUSED'}
+            </Text>
+            <Text style={styles.kpiSubMuted}>Instant Muhurtham</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 3. SEGMENTED NAVIGATION TABS */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'inquiries' && styles.tabButtonActive]}
+            onPress={() => {
+              playTabPop();
+              setActiveTab('inquiries');
+            }}
+            activeOpacity={0.8}
+          >
+            <Calendar
+              size={15}
+              color={activeTab === 'inquiries' ? '#09090B' : '#A1A1AA'}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'inquiries' && styles.tabButtonTextActive,
+              ]}
+            >
+              Inquiries ({inquiries.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'pricing' && styles.tabButtonActive]}
+            onPress={() => {
+              playTabPop();
+              setActiveTab('pricing');
+            }}
+            activeOpacity={0.8}
+          >
+            <DollarSign
+              size={15}
+              color={activeTab === 'pricing' ? '#09090B' : '#A1A1AA'}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'pricing' && styles.tabButtonTextActive,
+              ]}
+            >
+              Services & Pricing
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'media' && styles.tabButtonActive]}
+            onPress={() => {
+              playTabPop();
+              setActiveTab('media');
+            }}
+            activeOpacity={0.8}
+          >
+            <Video
+              size={15}
+              color={activeTab === 'media' ? '#09090B' : '#A1A1AA'}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'media' && styles.tabButtonTextActive,
+              ]}
+            >
+              4K Reels ({business?.media_reels?.length || 0})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'profile' && styles.tabButtonActive]}
+            onPress={() => {
+              playTabPop();
+              setActiveTab('profile');
+            }}
+            activeOpacity={0.8}
+          >
+            <Building
+              size={15}
+              color={activeTab === 'profile' ? '#09090B' : '#A1A1AA'}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'profile' && styles.tabButtonTextActive,
+              ]}
+            >
+              Hall Specs
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 4. TAB CONTENTS */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#C5A059" />
+            <Text style={styles.loadingText}>Syncing Partner Records...</Text>
+          </View>
+        ) : (
+          <>
+            {/* TAB 1: INQUIRIES & HOLDS */}
+            {activeTab === 'inquiries' && (
+              <View style={styles.tabSection}>
+                {/* Status Filter Pills */}
+                <View style={styles.filterRow}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, inquiryFilter === 'all' && styles.filterChipActive]}
+                    onPress={() => setInquiryFilter('all')}
+                  >
+                    <Text style={[styles.filterChipText, inquiryFilter === 'all' && styles.filterChipTextActive]}>
+                      All ({inquiries.length})
                     </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, inquiryFilter === 'pending' && styles.filterChipActive]}
+                    onPress={() => setInquiryFilter('pending')}
+                  >
+                    <Text style={[styles.filterChipText, inquiryFilter === 'pending' && styles.filterChipTextActive]}>
+                      Pending ({pendingInquiriesCount})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, inquiryFilter === 'confirmed' && styles.filterChipActive]}
+                    onPress={() => setInquiryFilter('confirmed')}
+                  >
+                    <Text style={[styles.filterChipText, inquiryFilter === 'confirmed' && styles.filterChipTextActive]}>
+                      Confirmed
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, inquiryFilter === 'declined' && styles.filterChipActive]}
+                    onPress={() => setInquiryFilter('declined')}
+                  >
+                    <Text style={[styles.filterChipText, inquiryFilter === 'declined' && styles.filterChipTextActive]}>
+                      Declined
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {filteredInquiries.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Calendar size={40} color="#71717A" />
+                    <Text style={styles.emptyTitle}>No Inquiries in this Category</Text>
+                    <Text style={styles.emptySub}>
+                      When prospective brides and grooms request date holds for {business?.name || 'your hall'}, they will appear here instantly.
+                    </Text>
+                  </View>
+                ) : (
+                  filteredInquiries.map((inq) => {
+                    const isPending = inq.status === 'pending';
+                    const isConfirmed = inq.status === 'confirmed' || inq.status === 'approved';
+                    const isDeclined = inq.status === 'declined' || inq.status === 'rejected';
+
+                    return (
+                      <View key={inq.id} style={styles.inquiryCard}>
+                        {/* Card Top Row */}
+                        <View style={styles.inquiryTopRow}>
+                          <View style={styles.customerAvatar}>
+                            <Text style={styles.customerInitial}>
+                              {inq.customer_name ? inq.customer_name[0].toUpperCase() : 'G'}
+                            </Text>
+                          </View>
+
+                          <View style={styles.customerMeta}>
+                            <Text style={styles.customerName}>{inq.customer_name}</Text>
+                            <Text style={styles.customerPhone}>{inq.customer_phone}</Text>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.statusPill,
+                              isPending && styles.statusPillAmber,
+                              isConfirmed && styles.statusPillEmerald,
+                              isDeclined && styles.statusPillRed,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusPillText,
+                                isPending && styles.statusPillTextAmber,
+                                isConfirmed && styles.statusPillTextEmerald,
+                                isDeclined && styles.statusPillTextRed,
+                              ]}
+                            >
+                              {isPending ? 'PENDING HOLD' : isConfirmed ? 'CONFIRMED' : 'DECLINED'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Specs Matrix */}
+                        <View style={styles.inquirySpecsBox}>
+                          <View style={styles.inquirySpecItem}>
+                            <Calendar size={13} color="#C5A059" />
+                            <Text style={styles.inquirySpecLabel}>Muhurtham:</Text>
+                            <Text style={styles.inquirySpecValue}>{inq.event_date}</Text>
+                          </View>
+
+                          <View style={styles.inquirySpecItem}>
+                            <Users size={13} color="#C5A059" />
+                            <Text style={styles.inquirySpecLabel}>Guests:</Text>
+                            <Text style={styles.inquirySpecValue}>{inq.guest_count} Pax</Text>
+                          </View>
+
+                          <View style={styles.inquirySpecItem}>
+                            <DollarSign size={13} color="#C5A059" />
+                            <Text style={styles.inquirySpecLabel}>Estimated:</Text>
+                            <Text style={styles.inquirySpecValueGold}>
+                              ₹{(inq.final_customer_amount || inq.vendor_base_amount || 175000).toLocaleString('en-IN')}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {inq.notes ? (
+                          <View style={styles.notesBox}>
+                            <Text style={styles.notesText}>"{inq.notes}"</Text>
+                          </View>
+                        ) : null}
+
+                        {/* Action Buttons */}
+                        <View style={styles.inquiryActionsRow}>
+                          {isPending && (
+                            <>
+                              <TouchableOpacity
+                                style={styles.approveBtn}
+                                onPress={() => handleInquiryStatus(inq.id, 'confirmed')}
+                                activeOpacity={0.8}
+                              >
+                                <Check size={15} color="#FFFFFF" />
+                                <Text style={styles.approveBtnText}>Approve Date Hold</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={styles.declineBtn}
+                                onPress={() => handleInquiryStatus(inq.id, 'declined')}
+                                activeOpacity={0.8}
+                              >
+                                <X size={15} color="#EF4444" />
+                              </TouchableOpacity>
+                            </>
+                          )}
+
+                          <TouchableOpacity
+                            style={styles.actionIconBtnWhatsApp}
+                            onPress={() =>
+                              handleWhatsAppCustomer(inq.customer_phone, inq.customer_name, inq.event_date)
+                            }
+                            activeOpacity={0.8}
+                            accessibilityLabel="WhatsApp Customer"
+                          >
+                            <MessageCircle size={17} color="#FFFFFF" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.actionIconBtnPhone}
+                            onPress={() => handleCallCustomer(inq.customer_phone)}
+                            activeOpacity={0.8}
+                            accessibilityLabel="Call Customer"
+                          >
+                            <Phone size={17} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* TAB 2: SERVICES & PRICING */}
+            {activeTab === 'pricing' && (
+              <View style={styles.tabSection}>
+                {/* Top Action */}
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Published Tariffs</Text>
+                    <Text style={styles.sectionSub}>Active pricing shown across customer storefronts</Text>
                   </View>
 
                   <TouchableOpacity
-                    style={styles.negotiatePriceBtn}
+                    style={styles.addBtn}
                     onPress={() => {
-                      setEditingItem(item);
-                      setUpdatedNegotiatedPrice(
-                        String(item.negotiable_price_per_plate || item.base_price_per_plate)
-                      );
+                      playButtonClick();
+                      setPriceModalVisible(true);
                     }}
                     activeOpacity={0.8}
                   >
-                    <Edit size={13} color={THEME.colors.goldDark} />
-                    <Text style={styles.negotiatePriceBtnText}>Adjust Price</Text>
+                    <Plus size={15} color="#09090B" />
+                    <Text style={styles.addBtnText}>Request Tariff Change</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.catPricingRow}>
-                  <View style={styles.priceCol}>
-                    <Text style={styles.priceColLabel}>Standard Price</Text>
-                    <Text style={styles.priceColVal}>₹{item.base_price_per_plate}/plate</Text>
-                  </View>
-
-                  <View style={styles.priceCol}>
-                    <Text style={styles.priceColLabel}>Agreed / Discussed Price</Text>
-                    <Text style={styles.priceColValHighlight}>
-                      ₹{item.negotiable_price_per_plate || item.base_price_per_plate}/plate
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-
-            {/* Modular Decor Elements Summary */}
-            <View style={{ marginTop: 24 }}>
-              <Text style={styles.sectionTitle}>Customizable Decor Packages</Text>
-              <Text style={styles.sectionSub}>
-                Modular stages, flower arches & haldi setups with flexible pricing
-              </Text>
-
-              {business?.decor_items?.map((dec) => (
-                <View key={dec.id} style={styles.cateringItemCard}>
-                  <View style={styles.catItemRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.catItemName}>{dec.title}</Text>
-                      <Text style={styles.catItemCategory}>
-                        {dec.flower_type || 'Fresh Florals'} • {dec.dimensions || 'Standard'}
+                {/* Published Service Cards */}
+                <View style={styles.pricingCard}>
+                  <View style={styles.pricingCardTop}>
+                    <Building size={20} color="#C5A059" />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental</Text>
+                      <Text style={styles.pricingSub}>Includes 8 AC Deluxe Rooms, Generator & Security</Text>
+                    </View>
+                    <View style={styles.pricePill}>
+                      <Text style={styles.pricePillText}>
+                        ₹{Number(currentBasePrice).toLocaleString('en-IN')}
                       </Text>
+                      <Text style={styles.pricePillUnit}>/ day</Text>
                     </View>
-                    <Text style={styles.priceColValHighlight}>₹{dec.base_price}</Text>
                   </View>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
-        {/* ================================================================= */}
-        {/* TAB 1: PRICING & ADMIN PERCENTAGE APPROVAL WORKFLOW               */}
-        {/* ================================================================= */}
-        {activeTab === 'pricing' && (
-          <View>
-            {/* Live Pricing Overview Card */}
-            <View style={styles.pricingSummaryCard}>
-              <View style={styles.pricingCardHeader}>
-                <View>
-                  <Text style={styles.summaryTitle}>Live Published Pricing</Text>
-                  <Text style={styles.summarySub}>
-                    Includes platform fee & Andhra date-hold guarantee
+
+                <View style={styles.pricingCard}>
+                  <View style={styles.pricingCardTop}>
+                    <Flower2 size={20} color="#C5A059" />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.pricingTitle}>Traditional Mandapam Decor Base</Text>
+                      <Text style={styles.pricingSub}>Fresh Jasmine, Marigold, Royal Stage Backdrops</Text>
+                    </View>
+                    <View style={styles.pricePill}>
+                      <Text style={styles.pricePillText}>₹1,40,000</Text>
+                      <Text style={styles.pricePillUnit}>/ event</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.pricingCard}>
+                  <View style={styles.pricingCardTop}>
+                    <Utensils size={20} color="#C5A059" />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.pricingTitle}>Royal Telugu Wedding Feast</Text>
+                      <Text style={styles.pricingSub}>32+ Classic Items on Banana Leaf</Text>
+                    </View>
+                    <View style={styles.pricePill}>
+                      <Text style={styles.pricePillText}>₹450</Text>
+                      <Text style={styles.pricePillUnit}>/ plate</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Transparent 10% Margin Math Card */}
+                <View style={styles.marginExplanationCard}>
+                  <View style={styles.marginHeader}>
+                    <Percent size={18} color="#C5A059" />
+                    <Text style={styles.marginTitle}>Transparent 10% Platform Protection</Text>
+                  </View>
+                  <Text style={styles.marginBody}>
+                    UtsavHub guarantees you 100% of your agreed base payout. We add a modest 10% platform guarantee markup on customer invoices to fund escrow security, 24/7 power monitoring, and dispute resolution.
                   </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.requestPriceBtn}
-                  onPress={() => setShowPriceModal(true)}
-                  activeOpacity={0.8}
-                >
-                  <Plus size={16} color="#0F172A" />
-                  <Text style={styles.requestPriceBtnText}>Update Price</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.priceItemsGrid}>
-                <View style={styles.priceItemBox}>
-                  <Text style={styles.priceItemLabel}>Full Day Hall Rental</Text>
-                  <Text style={styles.priceItemValue}>
-                    ₹{(business?.venue_details?.base_rental_price || 175000).toLocaleString('en-IN')}
-                  </Text>
-                  <View style={styles.activeTag}>
-                    <CheckCircle2 size={11} color="#059669" />
-                    <Text style={styles.activeTagText}>Approved & Live</Text>
-                  </View>
-                </View>
-
-                {business?.catering_packages?.[0] && (
-                  <View style={styles.priceItemBox}>
-                    <Text style={styles.priceItemLabel}>Catering Per Plate</Text>
-                    <Text style={styles.priceItemValue}>
-                      ₹{business.catering_packages[0].price_per_plate.toLocaleString('en-IN')}
-                    </Text>
-                    <View style={styles.activeTag}>
-                      <CheckCircle2 size={11} color="#059669" />
-                      <Text style={styles.activeTagText}>Approved & Live</Text>
-                    </View>
-                  </View>
-                )}
-
-                {business?.decor_catalogues?.[0] && (
-                  <View style={styles.priceItemBox}>
-                    <Text style={styles.priceItemLabel}>Mandapam Decor Base</Text>
-                    <Text style={styles.priceItemValue}>
-                      ₹{business.decor_catalogues[0].base_price.toLocaleString('en-IN')}
-                    </Text>
-                    <View style={styles.activeTag}>
-                      <CheckCircle2 size={11} color="#059669" />
-                      <Text style={styles.activeTagText}>Approved & Live</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Commission Explanation */}
-              <View style={styles.commissionBanner}>
-                <Percent size={18} color="#D4AF37" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.commissionTitle}>
-                    Standard Admin Markup: {DEFAULT_ADMIN_PERCENTAGE}%
-                  </Text>
-                  <Text style={styles.commissionText}>
-                    When you update your base quote, the platform adds {DEFAULT_ADMIN_PERCENTAGE}% admin fee for concierge services and payment handling. Changes are sent for instant admin approval.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Price Update History & Approval Queue */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeading}>PRICE APPROVAL QUEUE</Text>
-              <TouchableOpacity onPress={loadData} style={styles.refreshIconBtn}>
-                <RefreshCw size={14} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {priceRequests.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>No price updates in queue.</Text>
-              </View>
-            ) : (
-              priceRequests.map((req) => (
-                <View key={req.id} style={styles.requestCard}>
-                  <View style={styles.requestCardTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.reqItemName}>{req.item_name}</Text>
-                      <Text style={styles.reqId}>Ref ID: {req.id} • {new Date(req.submitted_at).toLocaleDateString()}</Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        req.status === 'approved'
-                          ? styles.statusBadgeApproved
-                          : req.status === 'rejected'
-                          ? styles.statusBadgeRejected
-                          : styles.statusBadgePending,
-                      ]}
-                    >
-                      {req.status === 'approved' ? (
-                        <>
-                          <CheckCircle2 size={12} color="#059669" />
-                          <Text style={styles.statusTextApproved}>Approved</Text>
-                        </>
-                      ) : req.status === 'rejected' ? (
-                        <>
-                          <X size={12} color="#DC2626" />
-                          <Text style={styles.statusTextRejected}>Rejected</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Clock size={12} color="#D97706" />
-                          <Text style={styles.statusTextPending}>Pending Admin</Text>
-                        </>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Math Breakdown Card */}
-                  <View style={styles.breakdownBox}>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Vendor Base Quote:</Text>
-                      <Text style={styles.breakdownVal}>₹{req.proposed_base_price.toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>+ Admin Platform Markup ({req.admin_percentage}%):</Text>
-                      <Text style={[styles.breakdownVal, { color: '#D4AF37' }]}>
-                        +₹{req.admin_markup_amount.toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <View style={styles.breakdownDivider} />
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownTotalLabel}>Final Customer Listing Price:</Text>
-                      <Text style={styles.breakdownTotalVal}>
-                        ₹{req.final_customer_price.toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {req.notes && (
-                    <Text style={styles.reqNotes}>Note: "{req.notes}"</Text>
-                  )}
-
-                  {/* Admin Test Simulation Actions */}
-                  {req.status === 'pending_approval' && (
-                    <View style={styles.adminActionRow}>
-                      <Text style={styles.adminTestLabel}>Admin Testing Action:</Text>
-                      <TouchableOpacity
-                        style={styles.adminApproveBtn}
-                        onPress={() => handleApprovePrice(req.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Check size={14} color="#FFFFFF" />
-                        <Text style={styles.adminApproveText}>Approve & Publish Now</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.adminRejectBtn}
-                        onPress={() => handleRejectPrice(req.id)}
-                        activeOpacity={0.8}
-                      >
-                        <X size={14} color="#DC2626" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              ))
-            )}
-          </View>
-        )}
-
-        {/* ================================================================= */}
-        {/* TAB 2: MEDIA MANAGEMENT (REELS, PICS & PDFS)                      */}
-        {/* ================================================================= */}
-        {activeTab === 'media' && (
-          <View>
-            {/* Section A: Video Reels */}
-            <View style={styles.mediaSectionHeader}>
-              <View>
-                <Text style={styles.sectionHeading}>VIDEO REELS ({business?.media_reels?.length || 0})</Text>
-                <Text style={styles.sectionSub}>Short video walkthroughs shown to wedding planners</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.addMediaSmallBtn}
-                onPress={() => setShowReelModal(true)}
-                activeOpacity={0.7}
-              >
-                <Plus size={14} color="#0F172A" />
-                <Text style={styles.addMediaSmallText}>Add Reel</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reelsScroll}>
-              {(business?.media_reels || []).map((reel) => (
-                <TouchableOpacity
-                  key={reel.id}
-                  style={styles.reelCard}
-                  onPress={() => setActiveReelModal(reel)}
-                  activeOpacity={0.8}
-                >
-                  <Image source={{ uri: reel.thumbnail_url }} style={styles.reelThumb} />
-                  <View style={styles.reelPlayOverlay}>
-                    <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
-                  </View>
-                  <View style={styles.reelDurationBadge}>
-                    <Text style={styles.reelDurationText}>{reel.duration_seconds}s</Text>
-                  </View>
-                  <Text style={styles.reelCardTitle} numberOfLines={2}>
-                    {reel.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Section B: Photo Gallery */}
-            <View style={[styles.mediaSectionHeader, { marginTop: 24 }]}>
-              <View>
-                <Text style={styles.sectionHeading}>PHOTO GALLERY ({business?.gallery_images?.length || 0})</Text>
-                <Text style={styles.sectionSub}>High-resolution hall, stage, & dining photographs</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.addMediaSmallBtn}
-                onPress={() => setShowPhotoModal(true)}
-                activeOpacity={0.7}
-              >
-                <Plus size={14} color="#0F172A" />
-                <Text style={styles.addMediaSmallText}>Add Photo</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.photoGrid}>
-              {(business?.gallery_images || []).map((imgUrl, idx) => (
-                <View key={idx} style={styles.photoBox}>
-                  <Image source={{ uri: imgUrl }} style={styles.photoImg} />
-                  <TouchableOpacity
-                    style={styles.deletePhotoBtn}
-                    onPress={() => handleRemovePhoto(imgUrl)}
-                    activeOpacity={0.7}
-                  >
-                    <Trash2 size={13} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-
-            {/* Section C: PDF Documents */}
-            <View style={[styles.mediaSectionHeader, { marginTop: 24 }]}>
-              <View>
-                <Text style={styles.sectionHeading}>PDF BROCHURES & MENUS</Text>
-                <Text style={styles.sectionSub}>Catering package menus & decor catalogues</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.addMediaSmallBtn}
-                onPress={() => setShowPdfModal(true)}
-                activeOpacity={0.7}
-              >
-                <Plus size={14} color="#0F172A" />
-                <Text style={styles.addMediaSmallText}>Upload PDF</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.pdfList}>
-              {/* Default existing sample PDF */}
-              <View style={styles.pdfCard}>
-                <View style={styles.pdfIconCircle}>
-                  <FileText size={20} color="#DC2626" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pdfTitle}>Grand Swarna Hall Dimensions & Layout.pdf</Text>
-                  <Text style={styles.pdfSub}>Floor Plan & Seating Capacity Chart • 1.2 MB</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.pdfDownloadBtn}
-                  onPress={() => Linking.openURL('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')}
-                  activeOpacity={0.7}
-                >
-                  <ExternalLink size={16} color="#0F172A" />
-                </TouchableOpacity>
-              </View>
-
-              {(business?.vendor_pdfs || []).map((pdf) => (
-                <View key={pdf.id} style={styles.pdfCard}>
-                  <View style={styles.pdfIconCircle}>
-                    <FileText size={20} color="#DC2626" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pdfTitle}>{pdf.title}</Text>
-                    <Text style={styles.pdfSub}>
-                      {pdf.type.toUpperCase()} • {pdf.file_size_kb} KB • Uploaded {new Date(pdf.uploaded_at).toLocaleDateString()}
+                  <View style={styles.marginFormulaRow}>
+                    <Text style={styles.formulaText}>
+                      Vendor Base Payout (100%) + Platform Guarantee (10%) = Final Customer Invoice (110%)
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.pdfDownloadBtn}
-                    onPress={() => Linking.openURL(pdf.pdf_url)}
-                    activeOpacity={0.7}
-                  >
-                    <ExternalLink size={16} color="#0F172A" />
-                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
 
-        {/* ================================================================= */}
-        {/* TAB 3: CUSTOMER INQUIRIES & DATE HOLDS                            */}
-        {/* ================================================================= */}
-        {activeTab === 'inquiries' && (
-          <View>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeading}>INCOMING DATE-HOLD INQUIRIES</Text>
-              <TouchableOpacity onPress={loadData} style={styles.refreshIconBtn}>
-                <RefreshCw size={14} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {inquiries.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>No inquiries received yet.</Text>
-              </View>
-            ) : (
-              inquiries.map((inq) => (
-                <View key={inq.id} style={styles.inquiryCard}>
-                  <View style={styles.inquiryTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inqCustName}>{inq.customer_name}</Text>
-                      <View style={styles.inqPhoneRow}>
-                        <Phone size={13} color="#059669" />
-                        <Text style={styles.inqPhone}>{inq.customer_phone}</Text>
+                {/* Price Request History */}
+                <View style={styles.historyContainer}>
+                  <Text style={styles.historyTitle}>Tariff Update Requests</Text>
+                  {priceRequests.length === 0 ? (
+                    <Text style={styles.historyEmptyText}>No pending tariff update requests.</Text>
+                  ) : (
+                    priceRequests.map((req) => (
+                      <View key={req.id} style={styles.historyRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.historyItemName}>{req.item_name}</Text>
+                          <Text style={styles.historyProposed}>
+                            ₹{req.current_price.toLocaleString('en-IN')} → ₹{req.proposed_base_price.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.historyStatusPill,
+                            req.status === 'approved' && styles.historyStatusApproved,
+                            req.status === 'rejected' && styles.historyStatusRejected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.historyStatusText,
+                              req.status === 'approved' && styles.historyStatusTextApproved,
+                              req.status === 'rejected' && styles.historyStatusTextRejected,
+                            ]}
+                          >
+                            {req.status === 'pending_approval' ? 'Under Review' : req.status.toUpperCase()}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        inq.status === 'approved'
-                          ? styles.statusBadgeApproved
-                          : inq.status === 'rejected'
-                          ? styles.statusBadgeRejected
-                          : styles.statusBadgePending,
-                      ]}
-                    >
-                      <Text
-                        style={
-                          inq.status === 'approved'
-                            ? styles.statusTextApproved
-                            : inq.status === 'rejected'
-                            ? styles.statusTextRejected
-                            : styles.statusTextPending
-                        }
-                      >
-                        {inq.status.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.inqDetailsGrid}>
-                    <View style={styles.inqDetailCol}>
-                      <Text style={styles.inqDetailLabel}>Requested Date</Text>
-                      <Text style={styles.inqDetailVal}>{inq.event_date}</Text>
-                    </View>
-                    <View style={styles.inqDetailCol}>
-                      <Text style={styles.inqDetailLabel}>Guests</Text>
-                      <Text style={styles.inqDetailVal}>{inq.guest_count} persons</Text>
-                    </View>
-                    <View style={styles.inqDetailCol}>
-                      <Text style={styles.inqDetailLabel}>Estimated Total</Text>
-                      <Text style={styles.inqDetailVal}>₹{inq.total_estimated_amount.toLocaleString('en-IN')}</Text>
-                    </View>
-                  </View>
-
-                  {inq.notes && (
-                    <Text style={styles.inqNotes}>Note: {inq.notes}</Text>
-                  )}
-
-                  {inq.status === 'pending' && (
-                    <View style={styles.inquiryActionButtons}>
-                      <TouchableOpacity
-                        style={styles.approveHoldBtn}
-                        onPress={() => handleUpdateInquiry(inq.id!, 'approved')}
-                        activeOpacity={0.8}
-                      >
-                        <Check size={16} color="#FFFFFF" />
-                        <Text style={styles.approveHoldText}>Accept Date Hold</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.rejectHoldBtn}
-                        onPress={() => handleUpdateInquiry(inq.id!, 'rejected')}
-                        activeOpacity={0.8}
-                      >
-                        <X size={16} color="#DC2626" />
-                        <Text style={styles.rejectHoldText}>Decline</Text>
-                      </TouchableOpacity>
-                    </View>
+                    ))
                   )}
                 </View>
-              ))
+              </View>
             )}
-          </View>
+
+            {/* TAB 3: 4K REELS & MEDIA */}
+            {activeTab === 'media' && (
+              <View style={styles.tabSection}>
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionTitle}>4K Video Walkthroughs</Text>
+                    <Text style={styles.sectionSub}>Engage wedding planners with cinematic reels</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.addBtn}
+                    onPress={() => {
+                      playButtonClick();
+                      setReelModalVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Plus size={15} color="#09090B" />
+                    <Text style={styles.addBtnText}>Add 4K Reel</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Reels Grid */}
+                <View style={styles.reelsGrid}>
+                  {(business?.media_reels || []).map((reel) => (
+                    <TouchableOpacity
+                      key={reel.id}
+                      style={styles.reelCard}
+                      onPress={() => {
+                        playButtonClick();
+                        setSelectedReel(reel);
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Image source={{ uri: reel.thumbnail_url }} style={styles.reelThumb} />
+                      <View style={styles.reelPlayOverlay}>
+                        <View style={styles.playIconCircle}>
+                          <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+                        </View>
+                      </View>
+                      <View style={styles.reelInfoOverlay}>
+                        <Text style={styles.reelCardTitle} numberOfLines={1}>
+                          {reel.title}
+                        </Text>
+                        <Text style={styles.reelDuration}>
+                          {reel.duration_seconds || 30}s • 4K HDR
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Photo Gallery Grid */}
+                <View style={styles.gallerySection}>
+                  <Text style={styles.galleryTitle}>High-Resolution Photography</Text>
+                  <View style={styles.photoGrid}>
+                    {(business?.gallery_images || []).map((img, idx) => (
+                      <View key={idx} style={styles.photoWrap}>
+                        <Image source={{ uri: img }} style={styles.photoItem} />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* TAB 4: HALL SPECS & PROFILE */}
+            {activeTab === 'profile' && (
+              <View style={styles.tabSection}>
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Hall Specifications</Text>
+                    <Text style={styles.sectionSub}>Technical capacity, power backup, and amenities</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.addBtn}
+                    onPress={() => {
+                      playButtonClick();
+                      setProfileModalVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Sliders size={15} color="#09090B" />
+                    <Text style={styles.addBtnText}>Edit Specs</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Technical Specs Matrix Card */}
+                <View style={styles.specsMatrixCard}>
+                  <View style={styles.specGridRow}>
+                    <View style={styles.specGridItem}>
+                      <Users size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{seatingCap} Guests</Text>
+                      <Text style={styles.specGridName}>Seating Capacity</Text>
+                    </View>
+
+                    <View style={styles.specGridDivider} />
+
+                    <View style={styles.specGridItem}>
+                      <Users size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{floatingCap} Guests</Text>
+                      <Text style={styles.specGridName}>Floating Capacity</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.specGridRowDivider} />
+
+                  <View style={styles.specGridRow}>
+                    <View style={styles.specGridItem}>
+                      <Building size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{roomsCount} Suites</Text>
+                      <Text style={styles.specGridName}>AC Guest Rooms</Text>
+                    </View>
+
+                    <View style={styles.specGridDivider} />
+
+                    <View style={styles.specGridItem}>
+                      <Car size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{parkingCars} Cars</Text>
+                      <Text style={styles.specGridName}>Parking Bays</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.specGridRowDivider} />
+
+                  <View style={styles.specGridRow}>
+                    <View style={styles.specGridItem}>
+                      <Zap size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{powerBackup} kVA</Text>
+                      <Text style={styles.specGridName}>Generator Backup</Text>
+                    </View>
+
+                    <View style={styles.specGridDivider} />
+
+                    <View style={styles.specGridItem}>
+                      <Utensils size={18} color="#C5A059" />
+                      <Text style={styles.specGridVal}>{outsideFood ? 'Allowed' : 'In-House'}</Text>
+                      <Text style={styles.specGridName}>Outside Catering</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contact & Location Info */}
+                <View style={styles.contactCard}>
+                  <Text style={styles.contactTitle}>Verified Contact & Concierge Routing</Text>
+                  <View style={styles.contactRow}>
+                    <Phone size={15} color="#A1A1AA" />
+                    <Text style={styles.contactText}>Direct Phone: {phoneContact}</Text>
+                  </View>
+                  <View style={styles.contactRow}>
+                    <MessageCircle size={15} color="#A1A1AA" />
+                    <Text style={styles.contactText}>WhatsApp Booking Desk: {whatsappContact}</Text>
+                  </View>
+                  <View style={styles.contactRow}>
+                    <MapPin size={15} color="#A1A1AA" />
+                    <Text style={styles.contactText}>
+                      Locality: {business?.area_locality || 'Madhurawada'}, {business?.city || 'Visakhapatnam'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
-      {/* =================================================================== */}
-      {/* MODAL: SUBMIT NEW PRICE WITH ADMIN PERCENTAGE                       */}
-      {/* =================================================================== */}
-      <Modal visible={showPriceModal} transparent animationType="slide" onRequestClose={() => setShowPriceModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+      {/* 5. MODAL: REQUEST TARIFF UPDATE */}
+      <Modal visible={priceModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalDialog}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Update Price & Calculate Admin Fee</Text>
-              <TouchableOpacity onPress={() => setShowPriceModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
+              <Text style={styles.modalTitle}>Request Tariff Change</Text>
+              <TouchableOpacity onPress={() => setPriceModalVisible(false)}>
+                <X size={20} color="#A1A1AA" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
-              {/* Item Type Picker */}
-              <Text style={styles.inputLabel}>Select Pricing Item</Text>
-              <View style={styles.typeSelectorRow}>
-                <TouchableOpacity
-                  style={[styles.typeBtn, selectedItemType === 'venue_rental' && styles.typeBtnActive]}
-                  onPress={() => setSelectedItemType('venue_rental')}
-                >
-                  <Text style={[styles.typeBtnText, selectedItemType === 'venue_rental' && styles.typeBtnTextActive]}>
-                    Full Hall
-                  </Text>
-                </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Service / Package Item</Text>
+              <TextInput
+                style={styles.textInput}
+                value={priceItemName}
+                onChangeText={setPriceItemName}
+                placeholder="Item name"
+                placeholderTextColor="#71717A"
+              />
 
-                <TouchableOpacity
-                  style={[styles.typeBtn, selectedItemType === 'catering_plate' && styles.typeBtnActive]}
-                  onPress={() => setSelectedItemType('catering_plate')}
-                >
-                  <Text style={[styles.typeBtnText, selectedItemType === 'catering_plate' && styles.typeBtnTextActive]}>
-                    Catering Plate
-                  </Text>
-                </TouchableOpacity>
+              <Text style={styles.inputLabel}>Current Base Price (₹)</Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputDisabled]}
+                value={currentBasePrice}
+                editable={false}
+              />
 
-                <TouchableOpacity
-                  style={[styles.typeBtn, selectedItemType === 'decor_package' && styles.typeBtnActive]}
-                  onPress={() => setSelectedItemType('decor_package')}
-                >
-                  <Text style={[styles.typeBtnText, selectedItemType === 'decor_package' && styles.typeBtnTextActive]}>
-                    Decor Set
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.inputLabel}>Proposed New Base Price (₹)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={proposedPrice}
+                onChangeText={setProposedPrice}
+                keyboardType="numeric"
+                placeholder="e.g. 190000"
+                placeholderTextColor="#71717A"
+              />
 
-              {/* Base Price Input */}
-              <Text style={styles.inputLabel}>Vendor Base Quote (₹)</Text>
-              <View style={styles.modalInputWrapper}>
-                <DollarSign size={18} color="#94A3B8" />
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={proposedBasePrice}
-                  onChangeText={setProposedBasePrice}
-                  keyboardType="numeric"
-                  placeholder="e.g. 190000"
-                />
-              </View>
+              <Text style={styles.inputLabel}>Reason / Notes for Admin</Text>
+              <TextInput
+                style={[styles.textInput, { height: 70 }]}
+                value={priceNotes}
+                onChangeText={setPriceNotes}
+                placeholder="e.g. Upgraded central AC chillers and banquet furniture"
+                placeholderTextColor="#71717A"
+                multiline
+              />
 
-              {/* Admin Percentage Markup Box */}
-              <View style={styles.adminPercentCard}>
-                <View style={styles.adminPercentHeader}>
-                  <Percent size={18} color="#D4AF37" />
-                  <Text style={styles.adminPercentTitle}>Admin Platform Commission</Text>
-                  <View style={styles.percentBadge}>
-                    <Text style={styles.percentBadgeText}>{adminPercentage}%</Text>
-                  </View>
-                </View>
-
-                {/* Calculation breakdown */}
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcLabel}>Your Base Price:</Text>
-                  <Text style={styles.calcVal}>₹{numBasePrice.toLocaleString('en-IN')}</Text>
-                </View>
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcLabel}>+ Admin Markup ({adminPercentage}%):</Text>
-                  <Text style={[styles.calcVal, { color: '#D4AF37' }]}>+₹{adminMarkup.toLocaleString('en-IN')}</Text>
-                </View>
-                <View style={styles.calcDivider} />
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcTotalLabel}>Customer Final Display Price:</Text>
-                  <Text style={styles.calcTotalVal}>₹{finalPriceToCustomer.toLocaleString('en-IN')}</Text>
-                </View>
-              </View>
-
-              {/* Reason / Notes */}
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Notes for Admin Review</Text>
-              <View style={[styles.modalInputWrapper, { height: 70, alignItems: 'flex-start', paddingTop: 8 }]}>
-                <TextInput
-                  style={[styles.modalTextInput, { height: '100%', textAlignVertical: 'top' }]}
-                  value={priceNotes}
-                  onChangeText={setPriceNotes}
-                  placeholder="Reason for change..."
-                  multiline
-                />
-              </View>
-
-              {/* Submit Button */}
               <TouchableOpacity
-                style={styles.modalSubmitBtn}
-                onPress={handleSubmitPrice}
+                style={styles.submitModalBtn}
+                onPress={handleSubmitPriceChange}
                 disabled={submittingPrice}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
                 {submittingPrice ? (
-                  <ActivityIndicator size="small" color="#0F172A" />
+                  <ActivityIndicator color="#09090B" />
                 ) : (
-                  <>
-                    <Text style={styles.modalSubmitBtnText}>Submit for Admin Approval</Text>
-                    <ArrowRight size={18} color="#0F172A" />
-                  </>
+                  <Text style={styles.submitModalBtnText}>Submit to UtsavHub Admin</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -1178,331 +1123,190 @@ export default function VendorDashboardScreen({
         </View>
       </Modal>
 
-      {/* =================================================================== */}
-      {/* MODAL: ADD REEL                                                     */}
-      {/* =================================================================== */}
-      <Modal visible={showReelModal} transparent animationType="slide" onRequestClose={() => setShowReelModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+      {/* 6. MODAL: ADD 4K REEL */}
+      <Modal visible={reelModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalDialog}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Upload New Video Reel</Text>
-              <TouchableOpacity onPress={() => setShowReelModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
+              <Text style={styles.modalTitle}>Add 4K Video Reel</Text>
+              <TouchableOpacity onPress={() => setReelModalVisible(false)}>
+                <X size={20} color="#A1A1AA" />
               </TouchableOpacity>
             </View>
-            <View style={{ padding: 20 }}>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.inputLabel}>Reel Title</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newReelTitle}
-                  onChangeText={setNewReelTitle}
-                  placeholder="e.g. Stage Decoration Walkthrough"
-                />
-              </View>
+              <TextInput
+                style={styles.textInput}
+                value={reelTitle}
+                onChangeText={setReelTitle}
+                placeholder="e.g. Royal Grand Dining Hall Walkthrough"
+                placeholderTextColor="#71717A"
+              />
 
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Video URL (MP4 / HLS Stream)</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newReelUrl}
-                  onChangeText={setNewReelUrl}
-                  placeholder="https://..."
-                />
-              </View>
+              <Text style={styles.inputLabel}>4K Video URL (.mp4 / stream)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={reelVideoUrl}
+                onChangeText={setReelVideoUrl}
+                placeholder="https://assets.utsavhub.com/videos/hall_walkthrough.mp4"
+                placeholderTextColor="#71717A"
+              />
 
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Thumbnail Cover URL</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newReelThumb}
-                  onChangeText={setNewReelThumb}
-                  placeholder="https://images.unsplash..."
-                />
-              </View>
+              <Text style={styles.inputLabel}>Thumbnail Image URL (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={reelThumbUrl}
+                onChangeText={setReelThumbUrl}
+                placeholder="https://images.unsplash.com/photo-..."
+                placeholderTextColor="#71717A"
+              />
 
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddReel} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Publish Video Reel</Text>
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleAddReel}
+                disabled={submittingReel}
+                activeOpacity={0.85}
+              >
+                {submittingReel ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.submitModalBtnText}>Publish 4K Reel</Text>
+                )}
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* =================================================================== */}
-      {/* MODAL: ADD PHOTO                                                    */}
-      {/* =================================================================== */}
-      <Modal visible={showPhotoModal} transparent animationType="slide" onRequestClose={() => setShowPhotoModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+      {/* 7. MODAL: EDIT HALL SPECS */}
+      <Modal visible={profileModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalDialog}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Gallery Photo</Text>
-              <TouchableOpacity onPress={() => setShowPhotoModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
+              <Text style={styles.modalTitle}>Edit Hall Specifications</Text>
+              <TouchableOpacity onPress={() => setProfileModalVisible(false)}>
+                <X size={20} color="#A1A1AA" />
               </TouchableOpacity>
             </View>
-            <View style={{ padding: 20 }}>
-              <Text style={styles.inputLabel}>Photo Image URL</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newPhotoUrl}
-                  onChangeText={setNewPhotoUrl}
-                  placeholder="https://images.unsplash.com/..."
-                />
-              </View>
 
-              {newPhotoUrl ? (
-                <View style={{ marginVertical: 12, alignItems: 'center' }}>
-                  <Image source={{ uri: newPhotoUrl }} style={{ width: '100%', height: 160, borderRadius: 12 }} />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Business Listing Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={bizName}
+                onChangeText={setBizName}
+                placeholder="Hall name"
+                placeholderTextColor="#71717A"
+              />
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Seating Capacity</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={seatingCap}
+                    onChangeText={setSeatingCap}
+                    keyboardType="numeric"
+                  />
                 </View>
-              ) : null}
-
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddPhoto} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Add Photo to Gallery</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* =================================================================== */}
-      {/* MODAL: ADD PDF                                                      */}
-      {/* =================================================================== */}
-      <Modal visible={showPdfModal} transparent animationType="slide" onRequestClose={() => setShowPdfModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Upload PDF Document</Text>
-              <TouchableOpacity onPress={() => setShowPdfModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            <View style={{ padding: 20 }}>
-              <Text style={styles.inputLabel}>Document Title</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newPdfTitle}
-                  onChangeText={setNewPdfTitle}
-                  placeholder="e.g. Wedding Menu Package 2026.pdf"
-                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Floating Capacity</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={floatingCap}
+                    onChangeText={setFloatingCap}
+                    keyboardType="numeric"
+                  />
+                </View>
               </View>
 
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Document Type</Text>
-              <View style={styles.typeSelectorRow}>
-                <TouchableOpacity
-                  style={[styles.typeBtn, newPdfType === 'menu' && styles.typeBtnActive]}
-                  onPress={() => setNewPdfType('menu')}
-                >
-                  <Text style={[styles.typeBtnText, newPdfType === 'menu' && styles.typeBtnTextActive]}>Menu Card</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.typeBtn, newPdfType === 'lookbook' && styles.typeBtnActive]}
-                  onPress={() => setNewPdfType('lookbook')}
-                >
-                  <Text style={[styles.typeBtnText, newPdfType === 'lookbook' && styles.typeBtnTextActive]}>Lookbook</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.typeBtn, newPdfType === 'brochure' && styles.typeBtnActive]}
-                  onPress={() => setNewPdfType('brochure')}
-                >
-                  <Text style={[styles.typeBtnText, newPdfType === 'brochure' && styles.typeBtnTextActive]}>Brochure</Text>
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>AC Guest Rooms</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={roomsCount}
+                    onChangeText={setRoomsCount}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Parking Bays</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={parkingCars}
+                    onChangeText={setParkingCars}
+                    keyboardType="numeric"
+                  />
+                </View>
               </View>
 
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>PDF File Link</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newPdfUrl}
-                  onChangeText={setNewPdfUrl}
-                  placeholder="https://..."
-                />
-              </View>
-
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddPdf} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Upload & Attach PDF</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add New Business Modal */}
-      <Modal visible={showAddBusinessModal} animationType="slide" transparent onRequestClose={() => setShowAddBusinessModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Add New Business</Text>
-                <Text style={styles.modalSub}>Post an additional offering under your vendor profile</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowAddBusinessModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Business / Service Name</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newBizName}
-                  onChangeText={setNewBizName}
-                  placeholder="e.g. Swarna Photography & Cinematic Films"
-                />
-              </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Service Category</Text>
-              <View style={styles.typeSelectorRow}>
-                {(['venue', 'catering', 'decoration', 'photography'] as const).map((cat) => (
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Generator Backup (kVA)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={powerBackup}
+                    onChangeText={setPowerBackup}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Outside Catering</Text>
                   <TouchableOpacity
-                    key={cat}
-                    style={[styles.typeBtn, newBizCategory === cat && styles.typeBtnActive]}
-                    onPress={() => setNewBizCategory(cat)}
+                    style={[styles.textInput, { justifyContent: 'center' }]}
+                    onPress={() => setOutsideFood(!outsideFood)}
                   >
-                    <Text style={[styles.typeBtnText, newBizCategory === cat && styles.typeBtnTextActive]}>
-                      {cat.toUpperCase()}
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                      {outsideFood ? 'Allowed' : 'Not Allowed'}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Cover Photo URL</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newBizCover}
-                  onChangeText={setNewBizCover}
-                  placeholder="https://..."
-                />
-              </View>
-
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleCreateBusiness} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Publish Business to Supabase</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add Catering Item Modal */}
-      <Modal visible={showAddCateringModal} animationType="slide" transparent onRequestClose={() => setShowAddCateringModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Add Menu Dish</Text>
-                <Text style={styles.modalSub}>Itemize dishes and set standard + discussion prices</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowAddCateringModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Dish / Item Name</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={newCatItemName}
-                  onChangeText={setNewCatItemName}
-                  placeholder="e.g. Gongura Mutton Dum Biryani"
-                />
-              </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Dish Category</Text>
-              <View style={styles.typeSelectorRow}>
-                {(['sweet', 'starter', 'curry', 'rice', 'live_stall'] as const).map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.typeBtn, newCatItemCategory === c && styles.typeBtnActive]}
-                    onPress={() => setNewCatItemCategory(c)}
-                  >
-                    <Text style={[styles.typeBtnText, newCatItemCategory === c && styles.typeBtnTextActive]}>
-                      {c.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Standard Base Price (₹)</Text>
-                  <View style={styles.modalInputWrapper}>
-                    <TextInput
-                      style={styles.modalTextInput}
-                      value={newCatItemBasePrice}
-                      onChangeText={setNewCatItemBasePrice}
-                      keyboardType="numeric"
-                    />
-                  </View>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Negotiable Price (₹)</Text>
-                  <View style={styles.modalInputWrapper}>
-                    <TextInput
-                      style={styles.modalTextInput}
-                      value={newCatItemNegotiatedPrice}
-                      onChangeText={setNewCatItemNegotiatedPrice}
-                      keyboardType="numeric"
-                    />
-                  </View>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddCateringItem} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Add to Catering Menu</Text>
+              <Text style={styles.inputLabel}>Direct Phone</Text>
+              <TextInput
+                style={styles.textInput}
+                value={phoneContact}
+                onChangeText={setPhoneContact}
+                placeholder="+91 98480 12345"
+                placeholderTextColor="#71717A"
+              />
+
+              <Text style={styles.inputLabel}>WhatsApp Desk</Text>
+              <TextInput
+                style={styles.textInput}
+                value={whatsappContact}
+                onChangeText={setWhatsappContact}
+                placeholder="+91 98480 12345"
+                placeholderTextColor="#71717A"
+              />
+
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+                activeOpacity={0.85}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.submitModalBtnText}>Save Specifications</Text>
+                )}
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Edit Negotiated Price Modal (After discussion with customer) */}
-      <Modal visible={editingItem !== null} animationType="fade" transparent onRequestClose={() => setEditingItem(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Adjust Negotiated Price</Text>
-                <Text style={styles.modalSub}>{editingItem?.item_name}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.modalCloseBtn}>
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Agreed / Discussed Price per Plate (₹)</Text>
-              <View style={styles.modalInputWrapper}>
-                <TextInput
-                  style={styles.modalTextInput}
-                  value={updatedNegotiatedPrice}
-                  onChangeText={setUpdatedNegotiatedPrice}
-                  keyboardType="numeric"
-                  placeholder="Enter negotiated amount"
-                />
-              </View>
-
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleSaveNegotiatedPrice} activeOpacity={0.8}>
-                <Text style={styles.modalSubmitBtnText}>Save Negotiated Price to Supabase</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Reel Player Modal */}
-      {activeReelModal && (
-        <ReelModal
-          reel={activeReelModal}
-          visible={!!activeReelModal}
-          onClose={() => setActiveReelModal(null)}
-        />
-      )}
+      {/* 8. INTERACTIVE 4K REEL VIEWER MODAL */}
+      <ReelModal
+        visible={!!selectedReel}
+        reel={selectedReel}
+        business={business}
+        onClose={() => setSelectedReel(null)}
+      />
     </View>
   );
 }
@@ -1510,1021 +1314,830 @@ export default function VendorDashboardScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#09090B',
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FAF8F5',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  topHeader: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+  topBar: {
+    backgroundColor: '#121215',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  bizInfoRow: {
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 12,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   bizAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#27272A',
     borderWidth: 1.5,
-    borderColor: THEME.colors.gold,
-    overflow: 'hidden',
-    backgroundColor: '#0B0B0F',
+    borderColor: '#C5A059',
   },
-  bizAvatarImg: {
-    width: '100%',
-    height: '100%',
+  bizInfo: {
+    marginLeft: 12,
+    flex: 1,
   },
-  badgeRow: {
+  bizNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    gap: 6,
+  },
+  bizName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+    maxWidth: '85%',
   },
   partnerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: THEME.colors.surface,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    gap: 5,
+    marginTop: 2,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
   },
   partnerBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: THEME.colors.textPrimary,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#A1A1AA',
   },
-  bizName: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  bizSub: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  quickActionsBar: {
+  topBarActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 14,
   },
   previewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
   },
   previewBtnText: {
+    color: '#C5A059',
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
   },
-  switchModeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: THEME.colors.surface,
+  switchRoleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#1F1F24',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-  },
-  switchModeBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.colors.textPrimary,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoutBtn: {
-    padding: 7,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    marginLeft: 'auto',
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tabNavContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+  scrollArea: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  tabBtn: {
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  kpiCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: '#121215',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  kpiCardActive: {
+    borderColor: 'rgba(197, 160, 89, 0.5)',
+  },
+  kpiHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  kpiLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#71717A',
+    letterSpacing: 0.5,
+  },
+  kpiIconWrapAmber: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kpiIconWrapGold: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kpiIconWrapGreen: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kpiIconWrapStatus: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  kpiValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  kpiValueStatus: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  kpiSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  pulseDotAmber: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+  },
+  kpiSubAmber: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  kpiSubMuted: {
+    fontSize: 11,
+    color: '#71717A',
+    marginTop: 4,
+  },
+  kpiSubGreen: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10B981',
+    marginTop: 4,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  tabButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 10,
+    borderRadius: 9,
   },
-  tabBtnActive: {
-    borderBottomColor: THEME.colors.textPrimary,
+  tabButtonActive: {
+    backgroundColor: '#C5A059',
   },
-  tabText: {
-    fontSize: 13,
+  tabButtonText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#A1A1AA',
   },
-  tabTextActive: {
-    color: THEME.colors.textPrimary,
-    fontWeight: '900',
+  tabButtonTextActive: {
+    color: '#09090B',
+    fontWeight: '800',
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 80,
+  tabSection: {
+    gap: 16,
   },
-  pricingSummaryCard: {
-    backgroundColor: '#FFFFFF',
+  loadingContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(197, 160, 89, 0.15)',
+    borderColor: '#C5A059',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A1A1AA',
+  },
+  filterChipTextActive: {
+    color: '#C5A059',
+    fontWeight: '800',
+  },
+  inquiryCard: {
+    backgroundColor: '#121215',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    marginBottom: 20,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  pricingCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  summarySub: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  requestPriceBtn: {
+  inquiryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: THEME.colors.accentDark,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    marginBottom: 12,
   },
-  requestPriceBtnText: {
-    fontSize: 12,
+  customerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#27272A',
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customerInitial: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#C5A059',
+  },
+  customerMeta: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  customerName: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  priceItemsGrid: {
-    gap: 10,
+  customerPhone: {
+    fontSize: 12,
+    color: '#71717A',
+    marginTop: 1,
   },
-  priceItemBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: '#27272A',
+  },
+  statusPillAmber: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
-    borderRadius: 12,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
   },
-  priceItemLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  priceItemValue: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  activeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  activeTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  commissionBanner: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: '#FFFBEB',
+  statusPillEmerald: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    padding: 12,
-    borderRadius: 14,
-    marginTop: 14,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
   },
-  commissionTitle: {
-    fontSize: 13,
+  statusPillRed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  statusPillText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#92400E',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
-  commissionText: {
-    fontSize: 11.5,
-    color: '#78350F',
-    marginTop: 2,
-    lineHeight: 16,
+  statusPillTextAmber: {
+    color: '#F59E0B',
   },
-  sectionHeaderRow: {
+  statusPillTextEmerald: {
+    color: '#10B981',
+  },
+  statusPillTextRed: {
+    color: '#EF4444',
+  },
+  inquirySpecsBox: {
+    backgroundColor: '#18181B',
+    borderRadius: 10,
+    padding: 10,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  sectionHeading: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#64748B',
-    letterSpacing: 0.8,
-  },
-  sectionSub: {
-    fontSize: 11.5,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  refreshIconBtn: {
-    padding: 6,
-  },
-  emptyCard: {
-    padding: 24,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  emptyText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  requestCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  requestCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  reqItemName: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  reqId: {
-    fontSize: 11.5,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  statusBadge: {
+  inquirySpecItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
   },
-  statusBadgePending: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusBadgeApproved: {
-    backgroundColor: '#ECFDF5',
-  },
-  statusBadgeRejected: {
-    backgroundColor: '#FEE2E2',
-  },
-  statusTextPending: {
+  inquirySpecLabel: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#B45309',
+    color: '#71717A',
   },
-  statusTextApproved: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#047857',
-  },
-  statusTextRejected: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#B91C1C',
-  },
-  breakdownBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 6,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  breakdownLabel: {
-    fontSize: 12.5,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  breakdownVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  breakdownDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 4,
-  },
-  breakdownTotalLabel: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  breakdownTotalVal: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#059669',
-  },
-  reqNotes: {
+  inquirySpecValue: {
     fontSize: 12,
-    color: '#64748B',
-    fontStyle: 'italic',
-    marginTop: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  adminActionRow: {
+  inquirySpecValueGold: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#C5A059',
+  },
+  notesBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 12,
+  },
+  notesText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#A1A1AA',
+  },
+  inquiryActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FAF5FF',
-    borderWidth: 1,
-    borderColor: '#E9D5FF',
-    padding: 10,
-    borderRadius: 12,
-    marginTop: 12,
+    marginTop: 4,
   },
-  adminTestLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#7E22CE',
-  },
-  adminApproveBtn: {
+  approveBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: '#059669',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 9,
     borderRadius: 8,
   },
-  adminApproveText: {
-    fontSize: 11,
-    fontWeight: '800',
+  approveBtnText: {
     color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
-  adminRejectBtn: {
-    padding: 6,
-    backgroundColor: '#FEE2E2',
+  declineBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  mediaSectionHeader: {
+  actionIconBtnWhatsApp: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#25D366',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconBtnPhone: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
   },
-  addMediaSmallBtn: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  sectionSub: {
+    fontSize: 11.5,
+    color: '#71717A',
+    marginTop: 2,
+  },
+  addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 6,
+    backgroundColor: '#C5A059',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 8,
   },
-  addMediaSmallText: {
+  addBtnText: {
+    color: '#09090B',
     fontSize: 12,
     fontWeight: '800',
-    color: '#0F172A',
   },
-  reelsScroll: {
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
+  pricingCard: {
+    backgroundColor: '#121215',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  pricingCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pricingTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pricingSub: {
+    fontSize: 11.5,
+    color: '#71717A',
+    marginTop: 2,
+  },
+  pricePill: {
+    alignItems: 'flex-end',
+  },
+  pricePillText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#C5A059',
+  },
+  pricePillUnit: {
+    fontSize: 10,
+    color: '#71717A',
+  },
+  marginExplanationCard: {
+    backgroundColor: 'rgba(197, 160, 89, 0.08)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.25)',
+  },
+  marginHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  marginTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#C5A059',
+  },
+  marginBody: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  marginFormulaRow: {
+    backgroundColor: '#121215',
+    borderRadius: 6,
+    padding: 8,
+  },
+  formulaText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C5A059',
+    textAlign: 'center',
+  },
+  historyContainer: {
+    marginTop: 10,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  historyEmptyText: {
+    fontSize: 12,
+    color: '#71717A',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#121215',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  historyItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  historyProposed: {
+    fontSize: 11.5,
+    color: '#C5A059',
+    marginTop: 2,
+  },
+  historyStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  historyStatusApproved: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  historyStatusRejected: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  historyStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+  historyStatusTextApproved: {
+    color: '#10B981',
+  },
+  historyStatusTextRejected: {
+    color: '#EF4444',
+  },
+  reelsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   reelCard: {
-    width: 140,
-    marginRight: 12,
-    backgroundColor: '#FFFFFF',
+    width: '48%',
+    aspectRatio: 9 / 14,
     borderRadius: 14,
     overflow: 'hidden',
+    backgroundColor: '#18181B',
+    position: 'relative',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   reelThumb: {
     width: '100%',
-    height: 180,
-    backgroundColor: '#1E293B',
+    height: '100%',
+    resizeMode: 'cover',
   },
   reelPlayOverlay: {
-    position: 'absolute',
-    top: 75,
-    left: 55,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
-  reelDurationBadge: {
+  playIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderWidth: 1.5,
+    borderColor: '#C5A059',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 3,
+  },
+  reelInfoOverlay: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  reelDurationText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 10,
+    backgroundColor: 'rgba(9, 9, 11, 0.85)',
   },
   reelCardTitle: {
     fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  reelDuration: {
+    fontSize: 10,
+    color: '#C5A059',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  gallerySection: {
+    marginTop: 16,
+  },
+  galleryTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
-    padding: 8,
-    lineHeight: 16,
+    color: '#FFFFFF',
+    marginBottom: 10,
   },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  photoBox: {
+  photoWrap: {
     width: '31%',
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#18181B',
   },
-  photoImg: {
+  photoItem: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
-  deletePhotoBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: 'rgba(220, 38, 38, 0.85)',
-    padding: 5,
-    borderRadius: 6,
-  },
-  pdfList: {
-    gap: 10,
-  },
-  pdfCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  pdfIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pdfTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  pdfSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  pdfDownloadBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  inquiryCard: {
-    backgroundColor: '#FFFFFF',
+  specsMatrixCard: {
+    backgroundColor: '#121215',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  inquiryTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  inqCustName: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  inqPhoneRow: {
+  specGridRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 3,
   },
-  inqPhone: {
-    fontSize: 12.5,
-    color: '#059669',
-    fontWeight: '700',
-  },
-  inqDetailsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    justifyContent: 'space-between',
-  },
-  inqDetailCol: {
+  specGridItem: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  inqDetailLabel: {
-    fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  inqDetailVal: {
-    fontSize: 12.5,
+  specGridVal: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
+    marginTop: 6,
+  },
+  specGridName: {
+    fontSize: 11,
+    color: '#71717A',
     marginTop: 2,
   },
-  inqNotes: {
-    fontSize: 12,
-    color: '#64748B',
-    fontStyle: 'italic',
-    marginTop: 10,
+  specGridDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-  inquiryActionButtons: {
-    flexDirection: 'row',
+  specGridRowDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 4,
+  },
+  contactCard: {
+    backgroundColor: '#121215',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     gap: 10,
+  },
+  contactTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#C5A059',
+    marginBottom: 4,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  contactText: {
+    fontSize: 12.5,
+    color: '#D4D4D8',
+  },
+  emptyCard: {
+    backgroundColor: '#121215',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
     marginTop: 12,
   },
-  approveHoldBtn: {
+  emptySub: {
+    fontSize: 12.5,
+    color: '#71717A',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  modalBackdrop: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  approveHoldText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  rejectHoldBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    padding: 20,
   },
-  rejectHoldText: {
-    color: '#DC2626',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-  },
-  modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: 20,
+  modalDialog: {
+    backgroundColor: '#121215',
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '85%',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingBottom: 12,
   },
   modalTitle: {
     fontSize: 17,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  modalCloseBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#A1A1AA',
     marginBottom: 6,
+    marginTop: 10,
   },
-  typeSelectorRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  typeBtn: {
-    flex: 1,
-    alignItems: 'center',
+  textInput: {
+    backgroundColor: '#18181B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-  },
-  typeBtnActive: {
-    backgroundColor: '#0F172A',
-  },
-  typeBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  typeBtnTextActive: {
+    fontSize: 13.5,
     color: '#FFFFFF',
   },
-  modalInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  textInputDisabled: {
+    backgroundColor: '#1F1F24',
+    color: '#71717A',
+  },
+  submitModalBtn: {
+    backgroundColor: '#C5A059',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 46,
-    marginBottom: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
   },
-  modalTextInput: {
-    flex: 1,
+  submitModalBtnText: {
+    color: '#09090B',
     fontSize: 14,
-    color: '#0F172A',
-  },
-  adminPercentCard: {
-    backgroundColor: '#FAF8F5',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 14,
-    marginVertical: 6,
-    gap: 8,
-  },
-  adminPercentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  adminPercentTitle: {
-    fontSize: 13.5,
     fontWeight: '800',
-    color: '#0F172A',
-    flex: 1,
-  },
-  percentBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  percentBadgeText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#B45309',
-  },
-  calcRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  calcLabel: {
-    fontSize: 12.5,
-    color: '#64748B',
-  },
-  calcVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  calcDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 4,
-  },
-  calcTotalLabel: {
-    fontSize: 13.5,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  calcTotalVal: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#059669',
-  },
-  modalSubmitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#D4AF37',
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 14,
-  },
-  modalSubmitBtnText: {
-    fontSize: 14.5,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  tabNavScroll: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingHorizontal: 10,
-    gap: 6,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: 20,
-  },
-  modalSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  addPrimaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: THEME.colors.accentDark,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  addPrimaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  businessCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  bizCardImg: {
-    width: '100%',
-    height: 120,
-  },
-  bizCardBody: {
-    padding: 14,
-  },
-  bizCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  bizCardTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    flex: 1,
-  },
-  bizCategoryBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  bizCategoryText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  bizCardLoc: {
-    fontSize: 12.5,
-    color: '#64748B',
-    marginBottom: 10,
-  },
-  visibilityToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  visibilityLabel: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  visibilityStatus: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 1,
-  },
-  statusActive: {
-    color: '#059669',
-  },
-  statusHidden: {
-    color: '#94A3B8',
-  },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  toggleBtnInactive: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  toggleBtnTextActive: {
-    color: '#059669',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toggleBtnTextInactive: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  cateringItemCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    marginBottom: 10,
-  },
-  catItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  vegIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  vegGreen: {
-    backgroundColor: '#059669',
-  },
-  nonVegRed: {
-    backgroundColor: '#DC2626',
-  },
-  catItemName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  catItemCategory: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  negotiatePriceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FAF6ED',
-    borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.4)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  negotiatePriceBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.colors.goldDark,
-  },
-  catPricingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-  },
-  priceCol: {
-    gap: 2,
-  },
-  priceColLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  priceColVal: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  priceColValHighlight: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#059669',
   },
 });
-

@@ -8,10 +8,18 @@ import { THEME } from '../theme/colors';
 interface ListingCardProps {
   business: Business;
   date?: string;
+  isWishlisted?: boolean;
+  onToggleWishlist?: () => void;
   onPress: () => void;
 }
 
-export default function ListingCard({ business, date, onPress }: ListingCardProps) {
+export default function ListingCard({
+  business,
+  date,
+  isWishlisted = false,
+  onToggleWishlist,
+  onPress,
+}: ListingCardProps) {
   const vSpecs = business.venue_details;
   const cPackages = business.catering_packages;
   const dCatalogues = business.decor_catalogues;
@@ -45,8 +53,19 @@ export default function ListingCard({ business, date, onPress }: ListingCardProp
         />
 
         {/* Floating Top Right Wishlist Heart */}
-        <TouchableOpacity style={styles.heartBtn} activeOpacity={0.8}>
-          <Heart size={16} color="#FFFFFF" />
+        <TouchableOpacity
+          style={styles.heartBtn}
+          activeOpacity={0.8}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            if (onToggleWishlist) onToggleWishlist();
+          }}
+        >
+          <Heart
+            size={16}
+            color={isWishlisted ? '#C5A059' : '#FFFFFF'}
+            fill={isWishlisted ? '#C5A059' : 'rgba(0,0,0,0.2)'}
+          />
         </TouchableOpacity>
 
         {/* Category Pill floating top-left */}

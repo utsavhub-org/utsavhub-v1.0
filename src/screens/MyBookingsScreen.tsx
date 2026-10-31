@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Calendar,
@@ -19,7 +20,13 @@ import {
   FileText,
   ArrowRight,
   ShieldCheck,
+  CalendarCheck,
+  Sparkles,
+  AlertCircle,
+  XCircle,
 } from 'lucide-react-native';
+import { useAuth } from '../context/AuthContext';
+import { getCustomerBookings } from '../lib/supabaseClient';
 import { THEME } from '../theme/colors';
 
 interface MyBookingsScreenProps {
@@ -27,45 +34,66 @@ interface MyBookingsScreenProps {
   onSelectVendor?: (vendorId: string) => void;
 }
 
-const MOCK_BOOKINGS = [
-  {
-    id: 'UH-2026-8942',
-    vendorId: '11111111-1111-1111-1111-111111111111',
-    name: 'Sri Venkateswara Grand AC Hall',
-    locality: 'Madhurawada, NH16 Highway',
-    image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80',
-    date: 'Nov 20, 2026',
-    muhurthamLabel: 'Shukla Paksha Auspicious Muhurtham',
-    guests: 500,
-    amount: '₹1,80,000',
-    status: 'confirmed',
-    phone: '+919848011223',
-    whatsapp: '919848011223',
-    statusLabel: 'Date Hold Confirmed',
-  },
-  {
-    id: 'UH-2026-9104',
-    vendorId: '22222222-2222-2222-2222-222222222222',
-    name: 'Royal Orchid Mandapam & AC Convention',
-    locality: 'Rushikonda Beach Road',
-    image: 'https://images.unsplash.com/photo-1545232979-8bf68ee9b1af?auto=format&fit=crop&w=600&q=80',
-    date: 'Dec 14, 2026',
-    muhurthamLabel: 'Peak Winter Muhurtham',
-    guests: 800,
-    amount: '₹2,50,000',
-    status: 'under_review',
-    phone: '+919848044556',
-    whatsapp: '919848044556',
-    statusLabel: 'Inquiry Under Review',
-  },
-];
-
 export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBookingsScreenProps) {
+  const { currentUser, isLoggedIn, openAuthModal } = useAuth();
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'all' | 'confirmed' | 'under_review'>('all');
 
-  const filteredBookings = MOCK_BOOKINGS.filter((b) => {
+  const loadLiveBookings = async () => {
+    if (!currentUser) {
+      setBookings([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const identifier = currentUser.phone || currentUser.email || '';
+    const liveData = await getCustomerBookings(identifier);
+    setBookings(liveData);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadLiveBookings();
+  }, [currentUser]);
+
+  // 1. Logged Out State: Prompt to Login
+  if (!isLoggedIn || !currentUser) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBar}>
+          <Text style={styles.screenTitle}>My Bookings</Text>
+          <Text style={styles.screenSub}>Auspicious Dates & Venue Holds</Text>
+        </View>
+
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <CalendarCheck size={40} color={THEME.colors.gold} />
+          </View>
+          <Text style={styles.emptyTitle}>Sign In to View Your Bookings</Text>
+          <Text style={styles.emptySub}>
+            Log in with your phone number or Google account to track your Muhurtham date holds, check vendor confirmations, and view detailed wedding contracts.
+          </Text>
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={openAuthModal}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.loginBtnText}>Sign In / Join UtsavHub</Text>
+            <ArrowRight size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 2. Filter bookings
+  const filteredBookings = bookings.filter((b) => {
     if (activeFilter === 'all') return true;
-    return b.status === activeFilter;
+    if (activeFilter === 'confirmed') return b.status === 'approved' || b.status === 'confirmed';
+    if (activeFilter === 'under_review') return b.status === 'pending' || b.status === 'under_review';
+    return true;
   });
 
   const handleWhatsApp = (number: string, name: string, date: string) => {
@@ -84,8 +112,13 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
     <View style={styles.container}>
       {/* Top Bar */}
       <View style={styles.topBar}>
-        <Text style={styles.screenTitle}>My Bookings</Text>
-        <Text style={styles.screenSub}>Auspicious Dates & Venue Holds</Text>
+        <View>
+          <Text style={styles.screenTitle}>My Bookings</Text>
+          <Text style={styles.screenSub}>Auspicious Dates & Venue Holds</Text>
+        </View>
+        <TouchableOpacity style={styles.refreshBtn} onPress={loadLiveBookings}>
+          <Text style={styles.refreshBtnText}>Refresh</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
@@ -96,7 +129,7 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
           activeOpacity={0.7}
         >
           <Text style={[styles.tabBtnText, activeFilter === 'all' && styles.tabBtnTextActive]}>
-            All ({MOCK_BOOKINGS.length})
+            All ({bookings.length})
           </Text>
         </TouchableOpacity>
 
@@ -106,7 +139,7 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
           activeOpacity={0.7}
         >
           <Text style={[styles.tabBtnText, activeFilter === 'confirmed' && styles.tabBtnTextActive]}>
-            Confirmed (1)
+            Confirmed ({bookings.filter((b) => b.status === 'approved' || b.status === 'confirmed').length})
           </Text>
         </TouchableOpacity>
 
@@ -116,122 +149,154 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
           activeOpacity={0.7}
         >
           <Text style={[styles.tabBtnText, activeFilter === 'under_review' && styles.tabBtnTextActive]}>
-            Under Review (1)
+            Pending ({bookings.filter((b) => b.status === 'pending' || b.status === 'under_review').length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollList}
-        contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredBookings.map((b) => {
-          const isConfirmed = b.status === 'confirmed';
-
-          return (
-            <View key={b.id} style={styles.card}>
-              {/* Header row with Status Pill */}
-              <View style={styles.cardTopRow}>
-                <View style={styles.idGroup}>
-                  <FileText size={13} color="#64748B" />
-                  <Text style={styles.bookingIdText}>{b.id}</Text>
-                </View>
-
-                <View style={[styles.statusPill, isConfirmed ? styles.statusConfirmed : styles.statusReview]}>
-                  {isConfirmed ? (
-                    <CheckCircle2 size={12} color="#059669" />
-                  ) : (
-                    <Clock size={12} color="#D97706" />
-                  )}
-                  <Text style={[styles.statusText, isConfirmed ? styles.statusTextConfirmed : styles.statusTextReview]}>
-                    {b.statusLabel}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Venue image + main details */}
-              <TouchableOpacity
-                style={styles.venueRow}
-                onPress={() => onSelectVendor?.(b.vendorId)}
-                activeOpacity={0.8}
-              >
-                <Image source={{ uri: b.image }} style={styles.venueThumb} />
-                <View style={styles.venueInfo}>
-                  <Text style={styles.venueName} numberOfLines={2}>
-                    {b.name}
-                  </Text>
-                  <View style={styles.locRow}>
-                    <MapPin size={12} color="#D4AF37" />
-                    <Text style={styles.locText} numberOfLines={1}>{b.locality}</Text>
-                  </View>
-                  <Text style={styles.amountText}>{b.amount} <Text style={styles.amountSub}>est. total</Text></Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Event specifications banner */}
-              <View style={styles.specsBanner}>
-                <View style={styles.specItem}>
-                  <Calendar size={14} color="#D4AF37" />
-                  <View>
-                    <Text style={styles.specLabel}>EVENT DATE</Text>
-                    <Text style={styles.specValue}>{b.date}</Text>
-                    <Text style={styles.muhurthamSub}>{b.muhurthamLabel}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.specDivider} />
-
-                <View style={styles.specItem}>
-                  <Users size={14} color="#D4AF37" />
-                  <View>
-                    <Text style={styles.specLabel}>EXPECTED GUESTS</Text>
-                    <Text style={styles.specValue}>{b.guests} Guests</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Quick Actions */}
-              <View style={styles.cardActionsRow}>
-                <TouchableOpacity
-                  style={styles.waBtn}
-                  onPress={() => handleWhatsApp(b.whatsapp, b.name, b.date)}
-                  activeOpacity={0.8}
-                >
-                  <MessageCircle size={15} color="#FFFFFF" />
-                  <Text style={styles.waBtnText}>WhatsApp Manager</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.callBtn}
-                  onPress={() => handleCall(b.phone)}
-                  activeOpacity={0.8}
-                >
-                  <Phone size={14} color="#334155" />
-                  <Text style={styles.callBtnText}>Call</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Guarantee Info Card */}
-        <View style={styles.guaranteeBox}>
-          <ShieldCheck size={22} color="#D4AF37" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.guaranteeTitle}>Double-Booking Protected</Text>
-            <Text style={styles.guaranteeSub}>
-              Dates held on UtsavHub are directly blocked in the venue manager diary.
-            </Text>
-          </View>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={THEME.colors.gold} />
+          <Text style={styles.loadingText}>Fetching live booking inquiries from Supabase...</Text>
         </View>
+      ) : filteredBookings.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <Calendar size={38} color="#94A3B8" />
+          </View>
+          <Text style={styles.emptyTitle}>No Booking Holds Found</Text>
+          <Text style={styles.emptySub}>
+            You haven't requested any date holds yet. Browse our verified Kalyana Mandapams, modular floral decor stages, and royal catering menus.
+          </Text>
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={onExploreMore}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.loginBtnText}>Explore Vendors & Halls</Text>
+            <ArrowRight size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredBookings.map((booking) => {
+            const isConfirmed = booking.status === 'approved' || booking.status === 'confirmed';
+            const isRejected = booking.status === 'rejected';
 
-        {/* Explore More CTA */}
-        <TouchableOpacity style={styles.exploreMoreBtn} onPress={onExploreMore} activeOpacity={0.85}>
-          <Text style={styles.exploreMoreText}>Hold Another Venue or Decorator</Text>
-          <ArrowRight size={16} color="#FFFFFF" />
-        </TouchableOpacity>
-      </ScrollView>
+            return (
+              <View key={booking.id} style={styles.bookingCard}>
+                {/* Image & Status Tag */}
+                <View style={styles.cardCoverWrapper}>
+                  <Image source={{ uri: booking.image }} style={styles.cardCover} />
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      isConfirmed
+                        ? styles.statusBadgeConfirmed
+                        : isRejected
+                        ? styles.statusBadgeRejected
+                        : styles.statusBadgePending,
+                    ]}
+                  >
+                    {isConfirmed ? (
+                      <CheckCircle2 size={12} color="#059669" />
+                    ) : isRejected ? (
+                      <XCircle size={12} color="#E11D48" />
+                    ) : (
+                      <Clock size={12} color="#D97706" />
+                    )}
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isConfirmed
+                          ? styles.statusBadgeTextConfirmed
+                          : isRejected
+                          ? styles.statusBadgeTextRejected
+                          : styles.statusBadgeTextPending,
+                      ]}
+                    >
+                      {booking.statusLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Card Content */}
+                <View style={styles.cardBody}>
+                  <Text style={styles.venueName}>{booking.name}</Text>
+                  <View style={styles.localityRow}>
+                    <MapPin size={12} color="#64748B" />
+                    <Text style={styles.localityText}>{booking.locality}</Text>
+                  </View>
+
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoCol}>
+                      <Text style={styles.infoLabel}>EVENT DATE</Text>
+                      <View style={styles.infoValueRow}>
+                        <Calendar size={13} color={THEME.colors.gold} />
+                        <Text style={styles.infoValue}>{booking.date}</Text>
+                      </View>
+                      <Text style={styles.muhurthamSub}>{booking.muhurthamLabel}</Text>
+                    </View>
+
+                    <View style={styles.infoDivider} />
+
+                    <View style={styles.infoCol}>
+                      <Text style={styles.infoLabel}>GUESTS & QUOTE</Text>
+                      <View style={styles.infoValueRow}>
+                        <Users size={13} color="#64748B" />
+                        <Text style={styles.infoValue}>{booking.guests} Guests</Text>
+                      </View>
+                      <Text style={styles.amountText}>{booking.amount}</Text>
+                    </View>
+                  </View>
+
+                  {booking.notes ? (
+                    <View style={styles.notesBox}>
+                      <Text style={styles.notesText} numberOfLines={2}>
+                        "{booking.notes}"
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Action Buttons */}
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      style={styles.whatsappBtn}
+                      onPress={() => handleWhatsApp(booking.whatsapp, booking.name, booking.date)}
+                      activeOpacity={0.8}
+                    >
+                      <MessageCircle size={14} color="#FFFFFF" />
+                      <Text style={styles.whatsappBtnText}>WhatsApp Manager</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.callBtn}
+                      onPress={() => handleCall(booking.phone)}
+                      activeOpacity={0.8}
+                    >
+                      <Phone size={14} color="#0F172A" />
+                    </TouchableOpacity>
+
+                    {onSelectVendor && (
+                      <TouchableOpacity
+                        style={styles.detailsBtn}
+                        onPress={() => onSelectVendor(booking.vendorId)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.detailsBtnText}>View Hall</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -239,274 +304,324 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.canvas,
   },
   topBar: {
-    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 10,
-    backgroundColor: '#FAF8F5',
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: THEME.colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 20,
+    color: THEME.colors.textPrimary,
   },
   screenSub: {
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: THEME.fonts.regular,
+    fontSize: 12.5,
+    color: THEME.colors.textMuted,
     marginTop: 2,
+  },
+  refreshBtn: {
+    backgroundColor: THEME.colors.surface,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  refreshBtnText: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 11.5,
+    color: THEME.colors.accentDark,
   },
   tabsRow: {
     flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: THEME.colors.border,
   },
   tabBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.border,
   },
   tabBtnActive: {
     backgroundColor: THEME.colors.accentDark,
     borderColor: THEME.colors.accentDark,
   },
   tabBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
   },
   tabBtnTextActive: {
+    fontFamily: THEME.fonts.bold,
     color: '#FFFFFF',
-    fontWeight: '800',
   },
-  scrollList: {
+  loadingContainer: {
     flex: 1,
-    paddingTop: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 16,
+  loadingText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#FAF6ED',
     borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.25)',
-    marginBottom: 16,
-    shadowColor: '#0B0B0F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 19,
+    color: THEME.colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    maxWidth: 320,
+    marginBottom: 24,
+  },
+  loginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: THEME.colors.accentDark,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
   },
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+  loginBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 14,
+    color: '#FFFFFF',
   },
-  idGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  scroll: {
+    flex: 1,
+    padding: 16,
   },
-  bookingIdText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
+  bookingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  statusPill: {
+  cardCoverWrapper: {
+    height: 140,
+    position: 'relative',
+  },
+  cardCover: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 12,
   },
-  statusConfirmed: {
-    backgroundColor: '#F0FDF4',
+  statusBadgeConfirmed: {
+    backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#A7F3D0',
   },
-  statusReview: {
+  statusBadgePending: {
     backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  statusText: {
-    fontSize: 11.5,
-    fontWeight: '800',
+  statusBadgeRejected: {
+    backgroundColor: '#FFE4E6',
+    borderWidth: 1,
+    borderColor: '#FDA4AF',
   },
-  statusTextConfirmed: {
-    color: '#15803D',
+  statusBadgeText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
   },
-  statusTextReview: {
+  statusBadgeTextConfirmed: {
+    color: '#065F46',
+  },
+  statusBadgeTextPending: {
     color: '#B45309',
   },
-  venueRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 12,
+  statusBadgeTextRejected: {
+    color: '#BE123C',
   },
-  venueThumb: {
-    width: 75,
-    height: 75,
-    borderRadius: 14,
-    backgroundColor: '#E2E8F0',
-  },
-  venueInfo: {
-    flex: 1,
-    justifyContent: 'center',
+  cardBody: {
+    padding: 16,
   },
   venueName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 20,
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 17,
+    color: THEME.colors.textPrimary,
   },
-  locRow: {
+  localityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: 4,
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  locText: {
+  localityText: {
+    fontFamily: THEME.fonts.regular,
     fontSize: 12,
     color: '#64748B',
   },
-  amountText: {
-    fontFamily: THEME.fonts.extraBold,
-    fontSize: 16,
-    color: THEME.colors.textPrimary,
-  },
-  amountSub: {
-    fontSize: 11.5,
-    fontWeight: '400',
-    color: '#64748B',
-  },
-  specsBanner: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+  infoGrid: {
+    flexDirection: 'row',
+    backgroundColor: THEME.colors.surface,
+    borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
+    borderColor: THEME.colors.border,
+    marginBottom: 12,
   },
-  specItem: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
+  infoCol: {
+    flex: 1,
   },
-  specDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 8,
+  infoDivider: {
+    width: 1,
+    backgroundColor: THEME.colors.border,
+    marginHorizontal: 12,
   },
-  specLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#64748B',
+  infoLabel: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 9.5,
+    color: THEME.colors.textMuted,
     letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  specValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 1,
-  },
-  muhurthamSub: {
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  cardActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  waBtn: {
-    flex: 2,
+  infoValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 14,
+    gap: 5,
   },
-  waBtnText: {
-    color: '#FFFFFF',
+  infoValue: {
+    fontFamily: THEME.fonts.bold,
     fontSize: 13,
-    fontWeight: '700',
+    color: THEME.colors.textPrimary,
   },
-  callBtn: {
+  muhurthamSub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 10.5,
+    color: THEME.colors.goldDark,
+    marginTop: 2,
+  },
+  amountText: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 13.5,
+    color: '#059669',
+    marginTop: 2,
+  },
+  notesBox: {
+    backgroundColor: '#FAF6ED',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: THEME.colors.gold,
+  },
+  notesText: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 11.5,
+    color: '#78350F',
+    fontStyle: 'italic',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  whatsappBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 6,
+    backgroundColor: '#25D366',
+    borderRadius: 12,
     paddingVertical: 10,
-    borderRadius: 14,
   },
-  callBtnText: {
-    color: '#334155',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  guaranteeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFFBEB',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-    marginBottom: 16,
-  },
-  guaranteeTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-  guaranteeSub: {
+  whatsappBtnText: {
+    fontFamily: THEME.fonts.bold,
     fontSize: 12,
-    color: '#78350F',
-    marginTop: 2,
-    lineHeight: 16,
+    color: '#FFFFFF',
   },
-  exploreMoreBtn: {
-    flexDirection: 'row',
+  callBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0F172A',
-    paddingVertical: 14,
-    borderRadius: 18,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  exploreMoreText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
+  detailsBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  detailsBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: THEME.colors.textPrimary,
   },
 });
