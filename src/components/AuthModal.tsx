@@ -173,32 +173,61 @@ export default function AuthModal() {
     // A. Attempt real Firebase Phone OTP
     if (Platform.OS === 'web' && auth && typeof document !== 'undefined') {
       try {
-        // Ensure DOM container exists
-        let container = document.getElementById('recaptcha-container');
-        if (!container) {
-          container = document.createElement('div');
+        let recaptchaVerifier = (window as any).recaptchaVerifier;
+
+        // If not already instantiated, create fresh container and verifier
+        if (!recaptchaVerifier) {
+          const existingContainer = document.getElementById('recaptcha-container');
+          if (existingContainer) {
+            try {
+              existingContainer.innerHTML = '';
+              existingContainer.remove();
+            } catch (e) {}
+          }
+
+          const container = document.createElement('div');
           container.id = 'recaptcha-container';
           document.body.appendChild(container);
-        }
 
-        // Clear previous verifier to prevent stale token errors
-        if ((window as any).recaptchaVerifier) {
-          try {
-            (window as any).recaptchaVerifier.clear();
-          } catch (e) {}
-          (window as any).recaptchaVerifier = null;
+          recaptchaVerifier = new RecaptchaVerifier(auth, container, {
+            size: 'invisible',
+            callback: () => {
+              // reCAPTCHA solved
+            },
+            'expired-callback': () => {
+              try {
+                if ((window as any).recaptchaVerifier) {
+                  (window as any).recaptchaVerifier.clear();
+                }
+              } catch (e) {}
+              (window as any).recaptchaVerifier = null;
+            },
+          });
+          (window as any).recaptchaVerifier = recaptchaVerifier;
         }
-
-        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-        });
-        (window as any).recaptchaVerifier = recaptchaVerifier;
 
         const confirmation = await signInWithPhoneNumber(auth, fullPhone, recaptchaVerifier);
         setConfirmationResult(confirmation);
         sentViaFirebase = true;
       } catch (fErr: any) {
         console.warn('Firebase SMS Dispatch notice:', fErr?.code, fErr?.message);
+
+        // On failure, clear verifier and remove stale DOM container so next attempt has a clean DOM element
+        try {
+          if ((window as any).recaptchaVerifier) {
+            (window as any).recaptchaVerifier.clear();
+          }
+        } catch (e) {}
+        (window as any).recaptchaVerifier = null;
+
+        const staleContainer = document.getElementById('recaptcha-container');
+        if (staleContainer) {
+          try {
+            staleContainer.innerHTML = '';
+            staleContainer.remove();
+          } catch (e) {}
+        }
+
         if (fErr?.code === 'auth/operation-not-allowed') {
           if (fErr?.message?.includes('region enabled') || fErr?.message?.includes('region')) {
             setErrorMessage(
