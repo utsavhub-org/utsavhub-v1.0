@@ -362,18 +362,17 @@ VALUES
 ('33333333-3333-3333-3333-333333333333', true, 350, 700, 2, 45, true, 85000.00, 80, 200);
 
 -- 4. Decor Items
-INSERT INTO public.decor_items (id, business_id, element_type, title, dimensions, flower_type, base_price, sample_images, is_customizable)
+INSERT INTO public.decor_items (business_id, element_type, title, dimensions, flower_type, base_price, sample_images, is_customizable)
 VALUES
-('d1111111-1111-1111-1111-111111111111', '66666666-6666-6666-6666-666666666666', 'mandapam', 'Tirumala Temple Gopuram Mandapam', '30x20 ft', 'Fresh Marigold & Jasmine', 125000.00, ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'], true),
-('d2222222-2222-2222-2222-222222222222', '66666666-6666-6666-6666-666666666666', 'mandapam', 'Pastel Blossom Floral Canopy Mandapam', '24x18 ft', 'Exotic Lilies & Carnations', 160000.00, ARRAY['https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=800&q=80'], true),
-('d3333333-3333-3333-3333-333333333333', '66666666-6666-6666-6666-666666666666', 'wayworks_entrance', '100ft Royal Archway Tunnel with Fairylights', '100 ft length', 'Floral Garlands & Fairy Lights', 45000.00, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true),
-('d4444444-4444-4444-4444-444444444444', '66666666-6666-6666-6666-666666666666', 'haldi_mehendi', 'Traditional Marigold Jhula & Photo-Booth', '15x12 ft', 'Pure Yellow & Orange Marigold', 28000.00, ARRAY['https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80'], true);
+('66666666-6666-6666-6666-666666666666', 'mandapam', 'Tirumala Temple Gopuram Mandapam', '30x20 ft', 'Fresh Marigold & Jasmine', 125000.00, ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'mandapam', 'Pastel Blossom Floral Canopy Mandapam', '24x18 ft', 'Exotic Lilies & Carnations', 160000.00, ARRAY['https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'wayworks_entrance', '100ft Royal Archway Tunnel with Fairylights', '100 ft length', 'Floral Garlands & Fairy Lights', 45000.00, ARRAY['https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80'], true),
+('66666666-6666-6666-6666-666666666666', 'haldi_mehendi', 'Traditional Marigold Jhula & Photo-Booth', '15x12 ft', 'Pure Yellow & Orange Marigold', 28000.00, ARRAY['https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80'], true);
 
 -- 5. Catering Packages
-INSERT INTO public.catering_packages (id, business_id, package_name, diet_type, service_type, price_per_plate, min_guest_count, sweets_count, curries_count, menu_highlights, menu_pdf_url)
+INSERT INTO public.catering_packages (business_id, package_name, diet_type, service_type, price_per_plate, min_guest_count, sweets_count, curries_count, menu_highlights, menu_pdf_url)
 VALUES
 (
-    'c1111111-1111-1111-1111-111111111111',
     '44444444-4444-4444-4444-444444444444',
     'Royal Andhra Grand Feast (Veg)',
     'veg',
@@ -386,7 +385,6 @@ VALUES
     'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
 ),
 (
-    'c2222222-2222-2222-2222-222222222222',
     '44444444-4444-4444-4444-444444444444',
     'Maharaja Sovereign Buffet (Non-Veg)',
     'non_veg',
@@ -414,30 +412,31 @@ VALUES
 ('44444444-4444-4444-4444-444444444444', 'live_stall', 'Live Pan & Mocktails Bar', true, 55.00, 45.00);
 
 -- 7. Catering Add-on Live Stalls
-INSERT INTO public.catering_addons (id, business_id, stall_name, price_per_plate_extra, description)
+INSERT INTO public.catering_addons (business_id, stall_name, price_per_plate_extra, description)
 VALUES
-('a1111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'Live Chaat & Pani Puri Counter', 45.00, '6 varieties of flavored water, dahi puri, sev puri and live chef setup.'),
-('a2222222-2222-2222-2222-222222222222', '44444444-4444-4444-4444-444444444444', 'Tandoori Kebab Live Charcoal Grill', 80.00, 'Paneer tikka, seekh kebabs, and tandoori rotis cooked fresh on live coals.'),
-('a3333333-3333-3333-3333-333333333333', '44444444-4444-4444-4444-444444444444', 'Artisanal Ice Cream & Banarasi Paan Stall', 35.00, 'Rolled stone ice creams with assorted toppings and authentic Banarasi meetha paan.');
+('44444444-4444-4444-4444-444444444444', 'Live Chaat & Pani Puri Counter', 45.00, '6 varieties of flavored water, dahi puri, sev puri and live chef setup.'),
+('44444444-4444-4444-4444-444444444444', 'Tandoori Kebab Live Charcoal Grill', 80.00, 'Paneer tikka, seekh kebabs, and tandoori rotis cooked fresh on live coals.'),
+('44444444-4444-4444-4444-444444444444', 'Artisanal Ice Cream & Banarasi Paan Stall', 35.00, 'Rolled stone ice creams with assorted toppings and authentic Banarasi meetha paan.');
 
 -- 8. Media Video Reels
-INSERT INTO public.media_reels (id, business_id, title, video_url, thumbnail_url, duration_seconds)
+INSERT INTO public.media_reels (business_id, title, video_url, thumbnail_url, duration_seconds)
 VALUES
-('r1111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'Grand Swarna Night Illumination & Hall Walkthrough', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80', 24),
-('r2222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222', 'Beachside Sunset Mandapam Setup at Royal Mayuri', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80', 18),
-('r3333333-3333-3333-3333-333333333333', '44444444-4444-4444-4444-444444444444', 'Live Dum Biryani Handi & Jalebi Counter in Action', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4', 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80', 22),
-('r4444444-4444-4444-4444-444444444444', '66666666-6666-6666-6666-666666666666', 'Behind the Scenes: 40ft Golden Temple Mandapam Erection', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=600&q=80', 28),
-('r5555555-5555-5555-5555-555555555555', '77777777-7777-7777-7777-777777777777', 'Teaser: Traditional Telugu Muhurtham Cinematic Highlights', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=600&q=80', 30),
-('r6666666-6666-6666-6666-666666666666', '88888888-8888-8888-8888-888888888888', 'Sangeet Night Live Sound & Lighting FX', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80', 22);
+('11111111-1111-1111-1111-111111111111', 'Grand Swarna Night Illumination & Hall Walkthrough', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80', 24),
+('22222222-2222-2222-2222-222222222222', 'Beachside Sunset Mandapam Setup at Royal Mayuri', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80', 18),
+('44444444-4444-4444-4444-444444444444', 'Live Dum Biryani Handi & Jalebi Counter in Action', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4', 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80', 22),
+('66666666-6666-6666-6666-666666666666', 'Behind the Scenes: 40ft Golden Temple Mandapam Erection', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=600&q=80', 28),
+('77777777-7777-7777-7777-777777777777', 'Teaser: Traditional Telugu Muhurtham Cinematic Highlights', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=600&q=80', 30),
+('88888888-8888-8888-8888-888888888888', 'Sangeet Night Live Sound & Lighting FX', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80', 22);
 
 -- 9. Verified Reviews
-INSERT INTO public.reviews (id, business_id, user_id, user_name, user_avatar, rating, review_text)
+INSERT INTO public.reviews (business_id, user_id, user_name, user_avatar, rating, review_text)
 VALUES
-('rev-1111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'cust-v1', 'Ananya & Rahul', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', 5, 'Grand Swarna Palace was an absolute dream for our 1,200 guest wedding reception! The centralized AC maintained comfortable coolness, parking was seamless, and the venue staff was deeply attentive.'),
-('rev-2222-2222-2222-2222-222222222222', '44444444-4444-4444-4444-444444444444', 'cust-v2', 'Dr. S. K. Murthy', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 5, 'Annapurna Caterers delivered exceptional quality. The Pootharekulu with pure cow ghee and authentic Natukodi Pulusu with hot garelu became the talk of our wedding celebration.'),
-('rev-3333-3333-3333-3333-333333333333', '66666666-6666-6666-6666-666666666666', 'cust-v3', 'Pooja & Karthik', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', 5, 'Sanskriti Mandapam created a celestial Tirumala Temple backdrop. Every fresh flower garland was vibrant, fragrant, and flawlessly arranged.');
+('11111111-1111-1111-1111-111111111111', 'cust-v1', 'Ananya & Rahul', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', 5, 'Grand Swarna Palace was an absolute dream for our 1,200 guest wedding reception! The centralized AC maintained comfortable coolness, parking was seamless, and the venue staff was deeply attentive.'),
+('44444444-4444-4444-4444-444444444444', 'cust-v2', 'Dr. S. K. Murthy', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 5, 'Annapurna Caterers delivered exceptional quality. The Pootharekulu with pure cow ghee and authentic Natukodi Pulusu with hot garelu became the talk of our wedding celebration.'),
+('66666666-6666-6666-6666-666666666666', 'cust-v3', 'Pooja & Karthik', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', 5, 'Sanskriti Mandapam created a celestial Tirumala Temple backdrop. Every fresh flower garland was vibrant, fragrant, and flawlessly arranged.');
 
 -- ====================================================================
 -- SUCCESS NOTICE
 -- Tables, RLS, and Catalog Seed Loaded.
 -- ====================================================================
+
