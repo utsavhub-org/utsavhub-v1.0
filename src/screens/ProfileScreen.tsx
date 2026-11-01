@@ -60,6 +60,7 @@ import {
   getBusinessReviews,
   getUserWishlists,
   getCustomerBookings,
+  approveVendorApplicationAndCreateBusiness,
 } from '../lib/supabaseClient';
 
 interface ProfileScreenProps {
@@ -630,16 +631,29 @@ export default function ProfileScreen({
             <TouchableOpacity
               style={styles.partnerSimulateBtn}
               onPress={async () => {
+                if (!currentUser) return;
+                const createdBiz = await approveVendorApplicationAndCreateBusiness(currentUser);
                 await updateProfile({
                   role: 'vendor',
                   vendorApplicationStatus: 'approved',
+                  businessId: createdBiz?.id,
+                  businessName: createdBiz?.name || currentUser.businessName,
                 });
-                Alert.alert('✅ Verification Approved!', 'Your partner application has been approved by Admin! You can now manage your storefront.');
+                Alert.alert(
+                  '✅ Verification Approved!',
+                  `Your partner application for "${createdBiz?.name || 'Your Business'}" has been verified by UtsavHub Admin! Your Vendor Dashboard is now live.`,
+                  [
+                    {
+                      text: 'Open Partner Dashboard',
+                      onPress: switchRole,
+                    },
+                  ]
+                );
               }}
               activeOpacity={0.8}
             >
               <CheckCircle2 size={13} color="#059669" />
-              <Text style={styles.partnerSimulateBtnText}>Approve (Demo)</Text>
+              <Text style={styles.partnerSimulateBtnText}>Verify & Approve (Admin)</Text>
             </TouchableOpacity>
           </View>
         </View>

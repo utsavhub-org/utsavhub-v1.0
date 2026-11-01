@@ -11,6 +11,8 @@ DROP TABLE IF EXISTS public.reviews CASCADE;
 DROP TABLE IF EXISTS public.reel_comments CASCADE;
 DROP TABLE IF EXISTS public.catering_items CASCADE;
 DROP TABLE IF EXISTS public.catering_addons CASCADE;
+DROP TABLE IF EXISTS public.photography_packages CASCADE;
+DROP TABLE IF EXISTS public.dj_sound_packages CASCADE;
 DROP TABLE IF EXISTS public.price_update_requests CASCADE;
 DROP TABLE IF EXISTS public.booking_inquiries CASCADE;
 DROP TABLE IF EXISTS public.media_reels CASCADE;
@@ -121,6 +123,37 @@ CREATE TABLE public.catering_addons (
     price_per_plate_extra NUMERIC(6,2) NOT NULL,
     description TEXT
 );
+-- 9. PHOTOGRAPHY & CINEMATOGRAPHY PACKAGES
+CREATE TABLE public.photography_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    package_type TEXT NOT NULL CHECK (package_type IN ('3day_wedding', 'pre_wedding', 'muhurtham_traditional', 'drone_led', 'custom')),
+    base_price NUMERIC(10,2) NOT NULL,
+    is_negotiable BOOLEAN DEFAULT true,
+    is_approved_by_admin BOOLEAN DEFAULT true,
+    duration TEXT,
+    crew_count TEXT,
+    deliverables TEXT[] DEFAULT '{}',
+    sample_images TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. DJ, SOUND & STAGE FX PACKAGES
+CREATE TABLE public.dj_sound_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    package_type TEXT NOT NULL CHECK (package_type IN ('sangeeth_dj', 'barat_truck', 'haldi_acoustic', 'truss_pyro', 'custom')),
+    base_price NUMERIC(10,2) NOT NULL,
+    is_negotiable BOOLEAN DEFAULT true,
+    is_approved_by_admin BOOLEAN DEFAULT true,
+    power_output_watts TEXT,
+    equipment_highlights TEXT[] DEFAULT '{}',
+    sample_images TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- 9. MEDIA VIDEO WALKTHROUGH REELS
 CREATE TABLE public.media_reels (
@@ -280,6 +313,8 @@ ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.price_update_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendor_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.photography_packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dj_sound_packages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public full vendors" ON public.vendors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full businesses" ON public.businesses FOR ALL USING (true) WITH CHECK (true);
@@ -297,6 +332,8 @@ CREATE POLICY "Public full support_messages" ON public.support_messages FOR ALL 
 CREATE POLICY "Public full price_requests" ON public.price_update_requests FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full user_profiles" ON public.user_profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full vendor_applications" ON public.vendor_applications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public full photography_packages" ON public.photography_packages FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public full dj_sound_packages" ON public.dj_sound_packages FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- SEED DATA: 7 VERIFIED VENDORS & MULTI-CATEGORY BUSINESS CATALOG
@@ -455,6 +492,57 @@ VALUES
 ('44444444-4444-4444-4444-444444444444', 'Live Chaat & Pani Puri Counter', 45.00, '6 varieties of flavored water, dahi puri, sev puri and live chef setup.'),
 ('44444444-4444-4444-4444-444444444444', 'Tandoori Kebab Live Charcoal Grill', 80.00, 'Paneer tikka, seekh kebabs, and tandoori rotis cooked fresh on live coals.'),
 ('44444444-4444-4444-4444-444444444444', 'Artisanal Ice Cream & Banarasi Paan Stall', 35.00, 'Rolled stone ice creams with assorted toppings and authentic Banarasi meetha paan.');
+
+
+-- 8b. Photography Packages
+INSERT INTO public.photography_packages (business_id, title, package_type, base_price, is_negotiable, duration, crew_count, deliverables, sample_images)
+VALUES
+(
+    '77777777-7777-7777-7777-777777777777',
+    '3-Day Grand Telugu Wedding Cinema',
+    '3day_wedding',
+    175000.00,
+    true,
+    '3 Full Days',
+    '6 Professionals (3 Candid, 2 Video, 1 Drone)',
+    ARRAY['3-Day Full Coverage (Kalagollu, Muhurtham, Sangeeth/Reception)', '4K Cinematic Teaser Reel (60s)', '45-Min Traditional Documentary Film', 'Premium Italian Leather Photobook (200 Pages)', '4K Drone Aerial Coverage (Day & Night)'],
+    ARRAY['https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80']
+),
+(
+    '77777777-7777-7777-7777-777777777777',
+    'Pre-Wedding Cinematography Shoot',
+    'pre_wedding',
+    45000.00,
+    true,
+    '1 Full Day',
+    '3 Professionals (1 Director, 1 Photographer, 1 Drone)',
+    ARRAY['1-Day Shoot at 2 Scenic Locations (Beach / Araku Valley)', '3-Minute Cinematic Story Song Video', '30 Retouched High-Res Stills for Invitations', 'Drone Aerial Highlights'],
+    ARRAY['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80']
+);
+
+-- 8c. DJ & Sound Packages
+INSERT INTO public.dj_sound_packages (business_id, title, package_type, base_price, is_negotiable, power_output_watts, equipment_highlights, sample_images)
+VALUES
+(
+    '88888888-8888-8888-8888-888888888888',
+    'Sangeeth DJ Mega Night & Concert Line Array',
+    'sangeeth_dj',
+    65000.00,
+    true,
+    '15,000 Watts RMS',
+    ARRAY['JBL VRX Line Array Sound System (Concert Grade)', 'Pioneer DDJ-1000 Digital Console with Resident Club DJ', '32-Channel Audio Mixer with Live Singer Support', 'Cold Spark Pyro Guns (6 Units for Bride & Groom Entry)'],
+    ARRAY['https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80']
+),
+(
+    '88888888-8888-8888-8888-888888888888',
+    'Barat Mobile DJ Sound Truck & Punjabi Dhol',
+    'barat_truck',
+    35000.00,
+    true,
+    '8,000 Watts RMS',
+    ARRAY['Custom Open Barat Sound Truck with Powerful Subwoofers', '2 Live Punjabi Dhol Players with Traditional Beats', 'Handheld CO2 Cryo Blast Jet for Dancing Crowds', 'High-Output Moving Spotlights'],
+    ARRAY['https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80']
+);
 
 -- 8. Media Video Reels
 INSERT INTO public.media_reels (business_id, title, video_url, thumbnail_url, duration_seconds)

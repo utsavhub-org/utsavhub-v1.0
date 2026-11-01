@@ -251,11 +251,11 @@ export default function VendorRegistrationScreen({
 
       if (success) {
         Alert.alert(
-          '🎉 Application Submitted!',
-          'Your partner registration and Aadhaar address proof have been received by the UtsavHub Trust & Safety team. Verification turnaround is typically 12–24 hours.',
+          '🎉 Registration Successful!',
+          'Your partner registration has been submitted and will be verified by UtsavHub shortly.',
           [
             {
-              text: 'View Status in Profile',
+              text: 'Go to Profile',
               onPress: onSuccess,
             },
           ]
@@ -627,18 +627,6 @@ export default function VendorRegistrationScreen({
                   Marked as "Price Negotiable on Discussion" for brides & grooms
                 </Text>
               </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>
-                PRIMARY SETUP SPECIFICATIONS (SIZE / HEIGHT / CAPACITY)
-              </Text>
-              <TextInput
-                style={[styles.textInput, { height: 60, textAlignVertical: 'top' }]}
-                value={specsNotes}
-                onChangeText={setSpecsNotes}
-                placeholder="e.g. Tirumala Temple Mandapam 30x20 ft, 16 ft Gopuram height, Fresh Jasmine & Roses"
-                placeholderTextColor="#8E8B99"
-                multiline
-              />
 
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>PORTFOLIO SHOWCASE PHOTOS</Text>
               <Text style={{ fontSize: 12, color: '#4A4852', marginBottom: 8 }}>
@@ -1158,3 +1146,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+

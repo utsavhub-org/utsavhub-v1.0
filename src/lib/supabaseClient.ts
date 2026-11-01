@@ -1793,3 +1793,221 @@ export async function approveVendorApplication(
 }
 
 
+
+export interface NewOfferingInput {
+  title: string;
+  category: BusinessCategory;
+  ceremony_type?: string;
+  dimensions?: string;
+  height?: string;
+  flower_type?: string;
+  diet_type?: 'veg' | 'non_veg' | 'mixed';
+  price: number;
+  menu_highlights?: string[];
+  deliverables?: string[];
+  duration?: string;
+  crew_count?: string;
+  power_output_watts?: string;
+  equipment_highlights?: string[];
+  photo_url?: string;
+}
+
+export async function addVendorOffering(
+  businessId: string,
+  category: BusinessCategory,
+  offering: NewOfferingInput
+): Promise<boolean> {
+  const photoUrl = offering.photo_url || CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES.decoration;
+
+  if (supabase) {
+    try {
+      if (category === 'decoration') {
+        const { error } = await supabase.from('decor_items').insert({
+          business_id: businessId,
+          element_type: offering.ceremony_type || 'mandapam',
+          title: offering.title,
+          dimensions: offering.dimensions || '25x20 ft',
+          height: offering.height || '14 ft',
+          flower_type: offering.flower_type || 'Fresh Jasmine & Marigold',
+          base_price: offering.price,
+          is_negotiable: true,
+          sample_images: [photoUrl],
+          is_customizable: true,
+        });
+        if (error) console.warn('Supabase insert decor_items error:', error.message);
+      } else if (category === 'catering') {
+        const { error } = await supabase.from('catering_packages').insert({
+          business_id: businessId,
+          package_name: offering.title,
+          diet_type: offering.diet_type || 'veg',
+          service_type: 'buffet',
+          price_per_plate: offering.price,
+          min_guest_count: 100,
+          menu_highlights: offering.menu_highlights && offering.menu_highlights.length > 0
+            ? offering.menu_highlights
+            : ['Special Andhra Sweets', 'Paneer Butter Masala', 'Dum Biryani'],
+        });
+        if (error) console.warn('Supabase insert catering_packages error:', error.message);
+      } else if (category === 'photography') {
+        const { error } = await supabase.from('photography_packages').insert({
+          business_id: businessId,
+          title: offering.title,
+          package_type: offering.ceremony_type || '3day_wedding',
+          base_price: offering.price,
+          is_negotiable: true,
+          duration: offering.duration || '1 Full Day',
+          crew_count: offering.crew_count || '3 Professionals',
+          deliverables: offering.deliverables && offering.deliverables.length > 0
+            ? offering.deliverables
+            : ['4K Cinematic Teaser (60s)', 'Full Ceremony Recording', 'Heirloom Photobook'],
+          sample_images: [photoUrl],
+        });
+        if (error) console.warn('Supabase insert photography_packages error:', error.message);
+      } else if (category === 'dj_sound') {
+        const { error } = await supabase.from('dj_sound_packages').insert({
+          business_id: businessId,
+          title: offering.title,
+          package_type: offering.ceremony_type || 'sangeeth_dj',
+          base_price: offering.price,
+          is_negotiable: true,
+          power_output_watts: offering.power_output_watts || '10,000 Watts RMS',
+          equipment_highlights: offering.equipment_highlights && offering.equipment_highlights.length > 0
+            ? offering.equipment_highlights
+            : ['Line Array Sound System', 'Digital DJ Console', 'Cold Spark Pyro Guns'],
+          sample_images: [photoUrl],
+        });
+        if (error) console.warn('Supabase insert dj_sound_packages error:', error.message);
+      }
+
+      // Also track in price_update_requests for UtsavHub verification & approval
+      await supabase.from('price_update_requests').insert({
+        business_id: businessId,
+        item_type: category,
+        item_name: offering.title,
+        current_price: offering.price,
+        proposed_base_price: offering.price,
+        admin_percentage: 0,
+        admin_markup_amount: 0,
+        final_customer_price: offering.price,
+        status: 'approved',
+        notes: 'Vendor custom offering added from partner dashboard',
+      });
+
+      return true;
+    } catch (e: any) {
+      console.warn('addVendorOffering notice:', e?.message || e);
+    }
+  }
+
+  // Local fallback persistence
+  const matched = localUserCreatedBusinesses.find(b => b.business.id === businessId);
+  if (matched) {
+    if (category === 'decoration') {
+      matched.business.decor_items = matched.business.decor_items || [];
+      matched.business.decor_items.push({
+        id: 'di-' + Date.now(),
+        business_id: businessId,
+        element_type: (offering.ceremony_type as any) || 'mandapam',
+        title: offering.title,
+        dimensions: offering.dimensions || '25x20 ft',
+        height: offering.height || '14 ft',
+        flower_type: offering.flower_type || 'Fresh Jasmine & Roses',
+        base_price: offering.price,
+        is_negotiable: true,
+        sample_images: [photoUrl],
+      });
+    } else if (category === 'catering') {
+      matched.business.catering_packages = matched.business.catering_packages || [];
+      matched.business.catering_packages.push({
+        id: 'cat-' + Date.now(),
+        business_id: businessId,
+        package_name: offering.title,
+        package_type: offering.diet_type || 'veg',
+        price_per_plate: offering.price,
+        min_guest_count: 100,
+        menu_highlights: offering.menu_highlights || ['Special Feast', 'Pure Ghee Sweets'],
+        menu_pdf_url: '',
+        is_negotiable: true,
+      });
+    } else if (category === 'photography') {
+      matched.business.photography_packages = matched.business.photography_packages || [];
+      matched.business.photography_packages.push({
+        id: 'photo-' + Date.now(),
+        business_id: businessId,
+        title: offering.title,
+        package_type: (offering.ceremony_type as any) || '3day_wedding',
+        base_price: offering.price,
+        is_negotiable: true,
+        duration: offering.duration || 'Full Day',
+        crew_count: offering.crew_count || '3 Photographers',
+        deliverables: offering.deliverables || ['4K Teaser Reel', 'Full Ceremony Video'],
+        sample_images: [photoUrl],
+      });
+    } else if (category === 'dj_sound') {
+      matched.business.dj_sound_packages = matched.business.dj_sound_packages || [];
+      matched.business.dj_sound_packages.push({
+        id: 'dj-' + Date.now(),
+        business_id: businessId,
+        title: offering.title,
+        package_type: (offering.ceremony_type as any) || 'sangeeth_dj',
+        base_price: offering.price,
+        is_negotiable: true,
+        power_output_watts: offering.power_output_watts || '10,000 Watts RMS',
+        equipment_highlights: offering.equipment_highlights || ['Line Array Speakers', 'Pioneer DJ Console'],
+        sample_images: [photoUrl],
+      });
+    }
+  }
+
+  return true;
+}
+
+export async function approveVendorApplicationAndCreateBusiness(
+  user: UserProfile
+): Promise<Business | null> {
+  const app = await getVendorApplication(user.id);
+  const bizName = app?.business_name || user.businessName || 'Sri Swarna Mandapams & Decor';
+  const category = (app?.categories?.[0] as BusinessCategory) || user.businessCategory || 'decoration';
+  const city = app?.city || user.selectedCity || 'Visakhapatnam';
+  const locality = app?.area_locality || user.area_locality || 'Siripuram Junction';
+  const startingPrice = app?.base_starting_price || 65000;
+  const coverUrl = app?.portfolio_images?.[0] || CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES.decoration;
+
+  let createdBiz: Business | null = null;
+
+  try {
+    createdBiz = await createVendorBusiness(user, {
+      name: bizName,
+      category,
+      city,
+      area_locality: locality,
+      phone: app?.phone || user.phone || '+91 98480 12345',
+      whatsapp_number: app?.whatsapp_number || app?.phone || user.phone || '+91 98480 12345',
+      base_price: startingPrice,
+      cover_image_url: coverUrl,
+    });
+
+    if (supabase) {
+      await supabase
+        .from('vendor_applications')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      await supabase
+        .from('user_profiles')
+        .update({
+          role: 'vendor',
+          vendor_application_status: 'approved',
+          business_id: createdBiz?.id,
+          business_name: bizName,
+          business_category: category,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    }
+  } catch (e) {
+    console.warn('approveVendorApplicationAndCreateBusiness notice:', e);
+  }
+
+  return createdBiz;
+}

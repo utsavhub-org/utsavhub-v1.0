@@ -306,6 +306,51 @@ export default function VendorDashboardScreen({
     }
   };
 
+  // Add Custom Ad / Offering Server-Side
+  const handleCreateOffering = async () => {
+    if (!offeringTitle.trim()) {
+      Alert.alert('Required', 'Please enter a title for this setup or package.');
+      return;
+    }
+    const cat = business?.category || 'decoration';
+    const parsedPrice = Number(offeringPrice || (cat === 'catering' ? 450 : 65000));
+
+    setIsSubmittingOffering(true);
+    playButtonClick();
+
+    try {
+      const success = await addVendorOffering(selectedBusinessId, cat, {
+        title: offeringTitle.trim(),
+        category: cat,
+        ceremony_type: offeringCeremonyType,
+        dimensions: offeringDimensions.trim(),
+        height: offeringHeight.trim(),
+        flower_type: offeringFlowers.trim(),
+        diet_type: offeringDietType,
+        price: parsedPrice,
+        menu_highlights: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
+        deliverables: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
+        duration: offeringDuration.trim(),
+        crew_count: offeringCrew.trim(),
+        power_output_watts: offeringPowerWatts.trim(),
+        equipment_highlights: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
+      });
+
+      if (success) {
+        playActionSuccess();
+        const updated = await getBusinessById(selectedBusinessId);
+        if (updated) setBusiness(updated);
+        setAddOfferingModalVisible(false);
+        setOfferingTitle('');
+        Alert.alert('🎉 Published to Registry!', `"${offeringTitle}" has been saved to the database and approved by UtsavHub.`);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to add offering');
+    } finally {
+      setIsSubmittingOffering(false);
+    }
+  };
+
   // Submit 4K Reel
   const handleAddReel = async () => {
     if (!reelTitle.trim() || !reelVideoUrl.trim()) {
@@ -1167,84 +1212,230 @@ export default function VendorDashboardScreen({
               <View style={styles.tabSection}>
                 {/* Top Action */}
                 <View style={styles.sectionHeaderRow}>
-                  <View>
-                    <Text style={styles.sectionTitle}>Published Tariffs</Text>
-                    <Text style={styles.sectionSub}>Active pricing shown across customer storefronts</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Published Offerings & Ads</Text>
+                    <Text style={styles.sectionSub}>All packages stored server-side in live database</Text>
                   </View>
 
                   <TouchableOpacity
                     style={styles.addBtn}
                     onPress={() => {
                       playButtonClick();
-                      setPriceModalVisible(true);
+                      setAddOfferingModalVisible(true);
                     }}
                     activeOpacity={0.8}
                   >
                     <Plus size={15} color="#FFFFFF" />
-                    <Text style={styles.addBtnText}>Request Tariff Change</Text>
+                    <Text style={styles.addBtnText}>+ Add Offering</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Published Service Cards */}
-                <View style={styles.pricingCard}>
-                  <View style={styles.pricingCardTop}>
-                    <Building size={20} color="#C5A059" />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental</Text>
-                      <Text style={styles.pricingSub}>Includes 8 AC Deluxe Rooms, Generator & Security</Text>
-                    </View>
-                    <View style={styles.pricePill}>
-                      <Text style={styles.pricePillText}>
-                        ₹{Number(currentBasePrice).toLocaleString('en-IN')}
+                {/* Base Starting Price Banner */}
+                <View style={styles.vendorStartingPriceCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.vendorStartingPriceLabel}>BASE PRICE STARTS FROM</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                      <Text style={styles.vendorStartingPriceValue}>
+                        ₹{Number(
+                          business?.starting_price ||
+                          (business?.category === 'catering'
+                            ? 450
+                            : business?.category === 'decoration'
+                            ? 65000
+                            : business?.category === 'photography'
+                            ? 45000
+                            : business?.category === 'dj_sound'
+                            ? 25000
+                            : 150000)
+                        ).toLocaleString('en-IN')}
                       </Text>
-                      <Text style={styles.pricePillUnit}>/ day</Text>
+                      {business?.category === 'catering' && (
+                        <Text style={{ fontSize: 13, color: '#8E8B99', marginLeft: 4 }}>/ plate</Text>
+                      )}
                     </View>
+                  </View>
+                  <View style={styles.vendorNegotiableBadge}>
+                    <Text style={styles.vendorNegotiableBadgeText}>Negotiable</Text>
                   </View>
                 </View>
 
-                <View style={styles.pricingCard}>
-                  <View style={styles.pricingCardTop}>
-                    <Flower2 size={20} color="#C5A059" />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.pricingTitle}>Traditional Mandapam Decor Base</Text>
-                      <Text style={styles.pricingSub}>Fresh Jasmine, Marigold, Royal Stage Backdrops</Text>
-                    </View>
-                    <View style={styles.pricePill}>
-                      <Text style={styles.pricePillText}>₹1,40,000</Text>
-                      <Text style={styles.pricePillUnit}>/ event</Text>
-                    </View>
+                {/* Category-Specific Published Ads & Offerings */}
+                {business?.category === 'decoration' && (
+                  <View style={{ marginBottom: 12 }}>
+                    {(business.decor_items || []).map((item) => (
+                      <View key={item.id} style={styles.pricingCard}>
+                        <View style={styles.pricingCardTop}>
+                          <Flower2 size={20} color="#C5A059" />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Text style={styles.vendorCategoryBadgeText}>
+                                {item.element_type.toUpperCase().replace('_', ' ')}
+                              </Text>
+                              <View style={styles.vendorMiniNegotiableTag}>
+                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.pricingTitle}>{item.title}</Text>
+                            <Text style={styles.pricingSub}>
+                              {item.dimensions ? `Size: ${item.dimensions}` : ''}
+                              {item.height ? ` • Height: ${item.height}` : ''}
+                              {item.flower_type ? ` • ${item.flower_type}` : ''}
+                            </Text>
+                          </View>
+                          <View style={styles.pricePill}>
+                            <Text style={styles.pricePillText}>
+                              ₹{Number(item.base_price || 0).toLocaleString('en-IN')}
+                            </Text>
+                            <Text style={styles.pricePillUnit}>/ event</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                </View>
+                )}
 
-                <View style={styles.pricingCard}>
-                  <View style={styles.pricingCardTop}>
-                    <Utensils size={20} color="#C5A059" />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.pricingTitle}>Royal Telugu Wedding Feast</Text>
-                      <Text style={styles.pricingSub}>32+ Classic Items on Banana Leaf</Text>
-                    </View>
-                    <View style={styles.pricePill}>
-                      <Text style={styles.pricePillText}>₹450</Text>
-                      <Text style={styles.pricePillUnit}>/ plate</Text>
-                    </View>
-                  </View>
-                </View>
+                {business?.category === 'catering' && (
+                  <View style={{ marginBottom: 12 }}>
+                    {(business.catering_packages || []).map((pkg) => (
+                      <View key={pkg.id} style={styles.pricingCard}>
+                        <View style={styles.pricingCardTop}>
+                          <Utensils size={20} color="#C5A059" />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Text style={styles.vendorCategoryBadgeText}>
+                                {pkg.package_type.toUpperCase()} CATERING FEAST
+                              </Text>
+                              <View style={styles.vendorMiniNegotiableTag}>
+                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.pricingTitle}>{pkg.package_name}</Text>
+                            <Text style={styles.pricingSub} numberOfLines={2}>
+                              {pkg.menu_highlights.join(' • ')}
+                            </Text>
+                          </View>
+                          <View style={styles.pricePill}>
+                            <Text style={styles.pricePillText}>
+                              ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')}
+                            </Text>
+                            <Text style={styles.pricePillUnit}>/ plate</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
 
-                {/* Transparent 10% Margin Math Card */}
-                <View style={styles.marginExplanationCard}>
-                  <View style={styles.marginHeader}>
-                    <Percent size={18} color="#C5A059" />
-                    <Text style={styles.marginTitle}>Transparent 10% Platform Protection</Text>
+                    {(business.catering_items || []).map((cItem) => (
+                      <View key={cItem.id} style={styles.pricingCard}>
+                        <View style={styles.pricingCardTop}>
+                          <Utensils size={18} color="#059669" />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Text style={styles.vendorCategoryBadgeText}>
+                                {cItem.category.toUpperCase().replace('_', ' ')}
+                              </Text>
+                              <View style={styles.vendorMiniNegotiableTag}>
+                                <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.pricingTitle}>{cItem.item_name}</Text>
+                          </View>
+                          <View style={styles.pricePill}>
+                            <Text style={styles.pricePillText}>
+                              ₹{Number(cItem.base_price_per_plate || 50).toLocaleString('en-IN')}
+                            </Text>
+                            <Text style={styles.pricePillUnit}>/ plate</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                  <Text style={styles.marginBody}>
-                    UtsavHub guarantees you 100% of your agreed base payout. We add a modest 10% platform guarantee markup on customer invoices to fund escrow security, 24/7 power monitoring, and dispute resolution.
-                  </Text>
-                  <View style={styles.marginFormulaRow}>
-                    <Text style={styles.formulaText}>
-                      Vendor Base Payout (100%) + Platform Guarantee (10%) = Final Customer Invoice (110%)
-                    </Text>
+                )}
+
+                {business?.category === 'photography' && (
+                  <View style={{ marginBottom: 12 }}>
+                    {(business.photography_packages || []).map((pkg) => (
+                      <View key={pkg.id} style={styles.pricingCard}>
+                        <View style={styles.pricingCardTop}>
+                          <Camera size={20} color="#C5A059" />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Text style={styles.vendorCategoryBadgeText}>
+                                {pkg.package_type.toUpperCase().replace('_', ' ')}
+                              </Text>
+                              <View style={styles.vendorMiniNegotiableTag}>
+                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                            <Text style={styles.pricingSub}>
+                              {pkg.duration ? `${pkg.duration} • ` : ''}{pkg.crew_count || ''}
+                            </Text>
+                            <Text style={[styles.pricingSub, { marginTop: 4 }]} numberOfLines={2}>
+                              Deliverables: {pkg.deliverables.join(' • ')}
+                            </Text>
+                          </View>
+                          <View style={styles.pricePill}>
+                            <Text style={styles.pricePillText}>
+                              ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                            </Text>
+                            <Text style={styles.pricePillUnit}>/ package</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                </View>
+                )}
+
+                {business?.category === 'dj_sound' && (
+                  <View style={{ marginBottom: 12 }}>
+                    {(business.dj_sound_packages || []).map((pkg) => (
+                      <View key={pkg.id} style={styles.pricingCard}>
+                        <View style={styles.pricingCardTop}>
+                          <Music size={20} color="#C5A059" />
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Text style={styles.vendorCategoryBadgeText}>
+                                {pkg.package_type.toUpperCase().replace('_', ' ')}
+                              </Text>
+                              <View style={styles.vendorMiniNegotiableTag}>
+                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                            <Text style={styles.pricingSub}>
+                              {pkg.power_output_watts ? `Output: ${pkg.power_output_watts} • ` : ''}
+                              {pkg.equipment_highlights.join(' • ')}
+                            </Text>
+                          </View>
+                          <View style={styles.pricePill}>
+                            <Text style={styles.pricePillText}>
+                              ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                            </Text>
+                            <Text style={styles.pricePillUnit}>/ setup</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {business?.category === 'venue' && (
+                  <View style={styles.pricingCard}>
+                    <View style={styles.pricingCardTop}>
+                      <Building size={20} color="#C5A059" />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental</Text>
+                        <Text style={styles.pricingSub}>Includes {roomsCount} AC Deluxe Rooms, Generator & Security</Text>
+                      </View>
+                      <View style={styles.pricePill}>
+                        <Text style={styles.pricePillText}>
+                          ₹{Number(currentBasePrice).toLocaleString('en-IN')}
+                        </Text>
+                        <Text style={styles.pricePillUnit}>/ day</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
 
                 {/* Price Request History */}
                 <View style={styles.historyContainer}>
