@@ -44,10 +44,12 @@ import {
   Lock,
   AlertCircle,
   MailCheck,
+  Clock,
   Mail,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import VendorDashboardScreen from './VendorDashboardScreen';
+import VendorRegistrationScreen from './VendorRegistrationScreen';
 import { THEME } from '../theme/colors';
 import { BusinessCategory, UserRole, Review, SupportMessage } from '../types';
 import {
@@ -107,6 +109,7 @@ export default function ProfileScreen({
   onSelectVendor,
 }: ProfileScreenProps) {
   const { currentUser, userRole, switchRole, openAuthModal, logout, updateProfile } = useAuth();
+  const [showVendorRegistration, setShowVendorRegistration] = useState(false);
 
   // Profile Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -351,6 +354,21 @@ export default function ProfileScreen({
     );
   }
 
+  if (showVendorRegistration) {
+    return (
+      <VendorRegistrationScreen
+        currentUser={currentUser}
+        onBack={() => setShowVendorRegistration(false)}
+        onSuccess={async () => {
+          setShowVendorRegistration(false);
+          await updateProfile({
+            vendorApplicationStatus: 'pending_verification',
+          });
+        }}
+      />
+    );
+  }
+
   if (userRole === 'vendor') {
     return (
       <VendorDashboardScreen
@@ -563,23 +581,93 @@ export default function ProfileScreen({
         </View>
       </View>
 
-      {/* Partner Callout Banner */}
-      <View style={styles.partnerCallout}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.partnerTitle}>Are you a Convention Hall or Caterer?</Text>
-          <Text style={styles.partnerSub}>
-            Manage calendar holds, upload video reels & update prices.
-          </Text>
+      {/* Dynamic Partner & Vendor Registration Section */}
+      {(!currentUser?.vendorApplicationStatus || currentUser?.vendorApplicationStatus === 'not_applied') && userRole !== 'vendor' && (
+        <View style={styles.partnerCallout}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Sparkles size={14} color="#C5A059" />
+              <Text style={styles.partnerBadgeLabel}>GROW YOUR WEDDING BUSINESS</Text>
+            </View>
+            <Text style={styles.partnerTitle}>Become an UtsavHub Partner</Text>
+            <Text style={styles.partnerSub}>
+              List Mandapams, Catering, 4K Photography or DJ Sound. Direct bookings with 0% advance commission.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.partnerActionBtn}
+            onPress={() => setShowVendorRegistration(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.partnerActionText}>Register as Partner</Text>
+            <ArrowRight size={13} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.partnerActionBtn}
-          onPress={switchRole}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.partnerActionText}>Open Partner Portal</Text>
-          <ArrowRight size={13} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      )}
+
+      {currentUser?.vendorApplicationStatus === 'pending_verification' && (
+        <View style={styles.partnerPendingCard}>
+          <View style={styles.partnerPendingHeader}>
+            <Clock size={16} color="#D97706" />
+            <Text style={styles.partnerPendingTitle}>APPLICATION UNDER ADMIN REVIEW</Text>
+          </View>
+          <Text style={styles.partnerPendingBody}>
+            Your business registration and Aadhaar address proof are currently being verified by the UtsavHub Trust & Safety team. Verification turnaround is typically 12–24 hours.
+          </Text>
+          <View style={styles.partnerPendingActionRow}>
+            <TouchableOpacity
+              style={styles.partnerWaBtn}
+              onPress={() => {
+                const url = 'whatsapp://send?phone=919848012345&text=Hi%20UtsavHub%20Admin%2C%20inquiring%20about%20my%20vendor%20partner%20verification.';
+                Linking.openURL(url).catch(() => Linking.openURL('https://wa.me/919848012345'));
+              }}
+              activeOpacity={0.8}
+            >
+              <MessageCircle size={13} color="#FFFFFF" />
+              <Text style={styles.partnerWaBtnText}>WhatsApp Admin</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.partnerSimulateBtn}
+              onPress={async () => {
+                await updateProfile({
+                  role: 'vendor',
+                  vendorApplicationStatus: 'approved',
+                });
+                Alert.alert('✅ Verification Approved!', 'Your partner application has been approved by Admin! You can now manage your storefront.');
+              }}
+              activeOpacity={0.8}
+            >
+              <CheckCircle2 size={13} color="#059669" />
+              <Text style={styles.partnerSimulateBtnText}>Approve (Demo)</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {(currentUser?.vendorApplicationStatus === 'approved' || userRole === 'vendor') && (
+        <View style={styles.partnerApprovedCard}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <ShieldCheck size={15} color="#059669" />
+              <Text style={styles.partnerApprovedTitle}>VERIFIED PARTNER ACCOUNT</Text>
+            </View>
+            <Text style={styles.partnerApprovedSub}>
+              {currentUser?.businessName || 'Your Business'} is active on the UtsavHub Registry.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.partnerApprovedBtn}
+            onPress={switchRole}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.partnerApprovedBtnText}>
+              {userRole === 'vendor' ? 'View Dashboard' : 'Switch to Partner'}
+            </Text>
+            <ArrowRight size={13} color="#0B0B0E" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Section 1: Wedding Planning */}
       <View style={styles.section}>

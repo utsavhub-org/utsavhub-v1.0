@@ -226,7 +226,35 @@ CREATE TABLE public.user_profiles (
     business_id UUID,
     business_name TEXT,
     business_category TEXT,
+    vendor_application_status TEXT DEFAULT 'not_applied',
+    vendor_categories TEXT[] DEFAULT '{}',
+    vendor_aadhaar_last4 TEXT,
     is_profile_complete BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. VENDOR REGISTRATION & KYC APPLICATIONS (Admin Verification Gate)
+CREATE TABLE public.vendor_applications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,
+    business_name TEXT NOT NULL,
+    primary_contact_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    whatsapp_number TEXT NOT NULL,
+    categories TEXT[] NOT NULL,
+    address_line TEXT NOT NULL,
+    area_locality TEXT NOT NULL,
+    city TEXT NOT NULL DEFAULT 'Visakhapatnam',
+    pincode TEXT NOT NULL,
+    id_proof_type TEXT DEFAULT 'aadhaar',
+    id_proof_last4 TEXT NOT NULL,
+    id_proof_doc_url TEXT,
+    portfolio_images TEXT[] DEFAULT '{}',
+    base_starting_price NUMERIC(10,2) NOT NULL,
+    specs_notes TEXT,
+    status TEXT DEFAULT 'pending_verification' CHECK (status IN ('pending_verification', 'approved', 'rejected')),
+    admin_notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -251,6 +279,7 @@ ALTER TABLE public.user_wishlists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.price_update_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vendor_applications ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public full vendors" ON public.vendors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full businesses" ON public.businesses FOR ALL USING (true) WITH CHECK (true);
@@ -267,6 +296,7 @@ CREATE POLICY "Public full user_wishlists" ON public.user_wishlists FOR ALL USIN
 CREATE POLICY "Public full support_messages" ON public.support_messages FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full price_requests" ON public.price_update_requests FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full user_profiles" ON public.user_profiles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public full vendor_applications" ON public.vendor_applications FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- SEED DATA: 7 VERIFIED VENDORS & MULTI-CATEGORY BUSINESS CATALOG

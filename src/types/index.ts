@@ -163,6 +163,34 @@ export interface UserProfile {
   businessName?: string;
   businessCategory?: BusinessCategory;
   isProfileComplete?: boolean;
+  vendorApplicationStatus?: 'not_applied' | 'pending_verification' | 'approved' | 'rejected';
+  vendorApplicationId?: string;
+  vendorCategories?: BusinessCategory[];
+  vendorAadhaarLast4?: string;
+}
+
+export interface VendorApplication {
+  id: string;
+  user_id: string;
+  business_name: string;
+  primary_contact_name: string;
+  phone: string;
+  whatsapp_number: string;
+  categories: BusinessCategory[];
+  address_line: string;
+  area_locality: string;
+  city: string;
+  pincode: string;
+  id_proof_type: 'aadhaar' | 'pan' | 'trade_license' | 'gst';
+  id_proof_last4: string;
+  id_proof_doc_url?: string;
+  portfolio_images: string[];
+  base_starting_price: number;
+  specs_notes?: string;
+  status: 'pending_verification' | 'approved' | 'rejected';
+  admin_notes?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface VendorDocPdf {

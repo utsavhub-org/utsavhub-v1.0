@@ -10,6 +10,7 @@ import {
   ReelComment,
   SupportMessage,
   CateringItem,
+  VendorApplication,
 } from '../types';
 import { MOCK_BUSINESSES } from './mockData';
 
@@ -1698,4 +1699,97 @@ export async function createVendorBusiness(
   localUserCreatedBusinesses.unshift({ ownerId: user.id, business: createdBusiness });
   return createdBusiness;
 }
+
+export async function submitVendorApplication(
+  user: UserProfile,
+  application: Omit<VendorApplication, 'id' | 'created_at'>
+): Promise<boolean> {
+  try {
+    if (supabase) {
+      await supabase.from('vendor_applications').insert({
+        user_id: user.id,
+        business_name: application.business_name,
+        primary_contact_name: application.primary_contact_name,
+        phone: application.phone,
+        whatsapp_number: application.whatsapp_number,
+        categories: application.categories,
+        address_line: application.address_line,
+        area_locality: application.area_locality,
+        city: application.city,
+        pincode: application.pincode,
+        id_proof_type: application.id_proof_type,
+        id_proof_last4: application.id_proof_last4,
+        id_proof_doc_url: application.id_proof_doc_url,
+        portfolio_images: application.portfolio_images,
+        base_starting_price: application.base_starting_price,
+        specs_notes: application.specs_notes,
+        status: 'pending_verification',
+      });
+
+      await supabase.from('user_profiles').upsert({
+        id: user.id,
+        phone: user.phone || application.phone,
+        full_name: application.primary_contact_name || user.name,
+        business_name: application.business_name,
+        business_category: application.categories[0],
+        vendor_application_status: 'pending_verification',
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return true;
+  } catch (e) {
+    console.warn('Submit vendor application notice:', e);
+    return true;
+  }
+}
+
+export async function getVendorApplication(userId: string): Promise<VendorApplication | null> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('vendor_applications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data as VendorApplication;
+      }
+    } catch (e) {
+      console.warn('Get vendor application notice:', e);
+    }
+  }
+  return null;
+}
+
+export async function approveVendorApplication(
+  userId: string,
+  businessName: string,
+  category: any
+): Promise<boolean> {
+  try {
+    if (supabase) {
+      await supabase
+        .from('vendor_applications')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+
+      await supabase
+        .from('user_profiles')
+        .update({
+          role: 'vendor',
+          vendor_application_status: 'approved',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+    }
+    return true;
+  } catch (e) {
+    console.warn('Approve vendor application notice:', e);
+    return false;
+  }
+}
+
 

@@ -452,7 +452,7 @@ export default function VendorDashboardScreen({
           value={newBizName}
           onChangeText={setNewBizName}
           placeholder="e.g. Sri Krishna Kalyana Mandapam"
-          placeholderTextColor="#71717A"
+          placeholderTextColor="#8E8B99"
         />
 
         <Text style={styles.inputLabel}>AREA / LOCALITY (VISAKHAPATNAM) *</Text>
@@ -478,7 +478,7 @@ export default function VendorDashboardScreen({
           value={newBizLocality}
           onChangeText={setNewBizLocality}
           placeholder="Or enter custom area / street"
-          placeholderTextColor="#71717A"
+          placeholderTextColor="#8E8B99"
         />
 
         <View style={styles.formRowTwoCol}>
@@ -489,7 +489,7 @@ export default function VendorDashboardScreen({
               value={newBizPhone}
               onChangeText={setNewBizPhone}
               placeholder="+91 98480 12345"
-              placeholderTextColor="#71717A"
+              placeholderTextColor="#8E8B99"
               keyboardType="phone-pad"
             />
           </View>
@@ -500,7 +500,7 @@ export default function VendorDashboardScreen({
               value={newBizWhatsapp}
               onChangeText={setNewBizWhatsapp}
               placeholder="+91 98480 12345"
-              placeholderTextColor="#71717A"
+              placeholderTextColor="#8E8B99"
               keyboardType="phone-pad"
             />
           </View>
@@ -521,7 +521,7 @@ export default function VendorDashboardScreen({
                   value={newBizBasePrice}
                   onChangeText={setNewBizBasePrice}
                   placeholder="150000"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -532,7 +532,7 @@ export default function VendorDashboardScreen({
                   value={newBizRoomsCount}
                   onChangeText={setNewBizRoomsCount}
                   placeholder="4"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -546,7 +546,7 @@ export default function VendorDashboardScreen({
                   value={newBizSeatingCap}
                   onChangeText={setNewBizSeatingCap}
                   placeholder="600"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -557,7 +557,7 @@ export default function VendorDashboardScreen({
                   value={newBizFloatingCap}
                   onChangeText={setNewBizFloatingCap}
                   placeholder="1200"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -569,7 +569,7 @@ export default function VendorDashboardScreen({
               value={newBizParkingCars}
               onChangeText={setNewBizParkingCars}
               placeholder="60"
-              placeholderTextColor="#71717A"
+              placeholderTextColor="#8E8B99"
               keyboardType="numeric"
             />
           </>
@@ -583,7 +583,7 @@ export default function VendorDashboardScreen({
                   value={newBizBasePrice}
                   onChangeText={setNewBizBasePrice}
                   placeholder="450"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -594,7 +594,7 @@ export default function VendorDashboardScreen({
                   value={newBizFloatingCap}
                   onChangeText={setNewBizFloatingCap}
                   placeholder="100"
-                  placeholderTextColor="#71717A"
+                  placeholderTextColor="#8E8B99"
                   keyboardType="numeric"
                 />
               </View>
@@ -624,7 +624,7 @@ export default function VendorDashboardScreen({
               value={newBizBasePrice}
               onChangeText={setNewBizBasePrice}
               placeholder="75000"
-              placeholderTextColor="#71717A"
+              placeholderTextColor="#8E8B99"
               keyboardType="numeric"
             />
           </View>
@@ -660,7 +660,7 @@ export default function VendorDashboardScreen({
           value={newBizCoverUrl}
           onChangeText={setNewBizCoverUrl}
           placeholder="Custom Image URL (https://...)"
-          placeholderTextColor="#71717A"
+          placeholderTextColor="#8E8B99"
         />
 
         {/* SUBMIT BUTTON */}
@@ -904,7 +904,7 @@ export default function VendorDashboardScreen({
           >
             <Calendar
               size={15}
-              color={activeTab === 'inquiries' ? '#09090B' : '#A1A1AA'}
+              color={activeTab === 'inquiries' ? '#C5A059' : '#4A4852'}
             />
             <Text
               style={[
@@ -926,7 +926,7 @@ export default function VendorDashboardScreen({
           >
             <DollarSign
               size={15}
-              color={activeTab === 'pricing' ? '#09090B' : '#A1A1AA'}
+              color={activeTab === 'pricing' ? '#C5A059' : '#4A4852'}
             />
             <Text
               style={[
@@ -948,7 +948,7 @@ export default function VendorDashboardScreen({
           >
             <Video
               size={15}
-              color={activeTab === 'media' ? '#09090B' : '#A1A1AA'}
+              color={activeTab === 'media' ? '#C5A059' : '#4A4852'}
             />
             <Text
               style={[
@@ -970,7 +970,7 @@ export default function VendorDashboardScreen({
           >
             <Building
               size={15}
-              color={activeTab === 'profile' ? '#09090B' : '#A1A1AA'}
+              color={activeTab === 'profile' ? '#C5A059' : '#4A4852'}
             />
             <Text
               style={[
@@ -1035,7 +1035,7 @@ export default function VendorDashboardScreen({
 
                 {filteredInquiries.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <Calendar size={40} color="#71717A" />
+                    <Calendar size={40} color="#8E8B99" />
                     <Text style={styles.emptyTitle}>No Inquiries in this Category</Text>
                     <Text style={styles.emptySub}>
                       When prospective brides and grooms request date holds for {business?.name || 'your hall'}, they will appear here instantly.
@@ -1180,7 +1180,7 @@ export default function VendorDashboardScreen({
                     }}
                     activeOpacity={0.8}
                   >
-                    <Plus size={15} color="#09090B" />
+                    <Plus size={15} color="#FFFFFF" />
                     <Text style={styles.addBtnText}>Request Tariff Change</Text>
                   </TouchableOpacity>
                 </View>
@@ -1469,7 +1469,7 @@ export default function VendorDashboardScreen({
                 value={priceItemName}
                 onChangeText={setPriceItemName}
                 placeholder="Item name"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <Text style={styles.inputLabel}>Current Base Price (₹)</Text>
@@ -1486,7 +1486,7 @@ export default function VendorDashboardScreen({
                 onChangeText={setProposedPrice}
                 keyboardType="numeric"
                 placeholder="e.g. 190000"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <Text style={styles.inputLabel}>Reason / Notes for Admin</Text>
@@ -1495,7 +1495,7 @@ export default function VendorDashboardScreen({
                 value={priceNotes}
                 onChangeText={setPriceNotes}
                 placeholder="e.g. Upgraded central AC chillers and banquet furniture"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
                 multiline
               />
 
@@ -1534,7 +1534,7 @@ export default function VendorDashboardScreen({
                 value={reelTitle}
                 onChangeText={setReelTitle}
                 placeholder="e.g. Royal Grand Dining Hall Walkthrough"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <Text style={styles.inputLabel}>4K Video URL (.mp4 / stream)</Text>
@@ -1543,7 +1543,7 @@ export default function VendorDashboardScreen({
                 value={reelVideoUrl}
                 onChangeText={setReelVideoUrl}
                 placeholder="https://assets.utsavhub.com/videos/hall_walkthrough.mp4"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <Text style={styles.inputLabel}>Thumbnail Image URL (Optional)</Text>
@@ -1552,7 +1552,7 @@ export default function VendorDashboardScreen({
                 value={reelThumbUrl}
                 onChangeText={setReelThumbUrl}
                 placeholder="https://images.unsplash.com/photo-..."
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <TouchableOpacity
@@ -1590,7 +1590,7 @@ export default function VendorDashboardScreen({
                 value={bizName}
                 onChangeText={setBizName}
                 placeholder="Hall name"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -1664,7 +1664,7 @@ export default function VendorDashboardScreen({
                 value={phoneContact}
                 onChangeText={setPhoneContact}
                 placeholder="+91 98480 12345"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <Text style={styles.inputLabel}>WhatsApp Desk</Text>
@@ -1673,7 +1673,7 @@ export default function VendorDashboardScreen({
                 value={whatsappContact}
                 onChangeText={setWhatsappContact}
                 placeholder="+91 98480 12345"
-                placeholderTextColor="#71717A"
+                placeholderTextColor="#8E8B99"
               />
 
               <TouchableOpacity
@@ -1705,86 +1705,14 @@ export default function VendorDashboardScreen({
 }
 
 const styles = StyleSheet.create({
-  ceremonyOfferChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#1E1E24',
-    borderWidth: 1,
-    borderColor: '#2A2A32',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  ceremonyOfferChipText: {
-    fontSize: 11,
-    color: '#E4E4E7',
-    fontWeight: '600',
-  },
-  vendorStartingPriceCard: {
-    backgroundColor: '#141418',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#C5A059',
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  vendorStartingPriceLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#C5A059',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  vendorStartingPriceValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  vendorNegotiableBadge: {
-    backgroundColor: '#231E12',
-    borderWidth: 1,
-    borderColor: '#C5A059',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
-  vendorNegotiableBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#C5A059',
-  },
-  vendorCategoryBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#C5A059',
-    letterSpacing: 0.5,
-  },
-  vendorMiniNegotiableTag: {
-    backgroundColor: '#14291E',
-    borderWidth: 1,
-    borderColor: '#10B981',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  vendorMiniNegotiableTagText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
+    backgroundColor: '#FAF9F6',
   },
   topBar: {
-    backgroundColor: '#121215',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: '#E8E6E1',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 8 : 12,
     paddingBottom: 14,
@@ -1801,7 +1729,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#27272A',
+    backgroundColor: '#F5F5F7',
     borderWidth: 1.5,
     borderColor: '#C5A059',
   },
@@ -1817,7 +1745,7 @@ const styles = StyleSheet.create({
   bizName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
     letterSpacing: -0.2,
     maxWidth: '85%',
   },
@@ -1826,17 +1754,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     marginTop: 2,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
+    backgroundColor: '#059669',
   },
   partnerBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+    letterSpacing: 0.3,
   },
   topBarActions: {
     flexDirection: 'row',
@@ -1847,84 +1783,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+    backgroundColor: '#FCFAF5',
     borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.3)',
+    borderColor: '#E8DEC8',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   previewBtnText: {
-    color: '#C5A059',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    color: '#8C6F34',
   },
   switchRoleBtn: {
     width: 34,
     height: 34,
-    borderRadius: 8,
-    backgroundColor: '#1F1F24',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: '#0B0B0E',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutBtn: {
     width: 34,
     height: 34,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: '#FFF1F2',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollArea: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 40,
   },
   businessSwitcherContainer: {
-    marginBottom: 16,
-    backgroundColor: '#121215',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E6E1',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   businessSwitcherHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   businessSwitcherLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C5A059',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#8C6F34',
+    letterSpacing: 0.8,
   },
   businessSwitcherScroll: {
     gap: 8,
-    flexDirection: 'row',
+    alignItems: 'center',
   },
   businessSwitchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#1C1C21',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     gap: 6,
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   businessSwitchPillActive: {
-    backgroundColor: 'rgba(197, 160, 89, 0.15)',
+    backgroundColor: '#FCFAF5',
     borderColor: '#C5A059',
   },
   businessPillDot: {
@@ -1934,89 +1859,115 @@ const styles = StyleSheet.create({
   },
   businessSwitchPillText: {
     fontSize: 12,
-    color: '#A1A1AA',
     fontWeight: '600',
+    color: '#4A4852',
+    maxWidth: 160,
   },
   businessSwitchPillTextActive: {
-    color: '#C5A059',
     fontWeight: '700',
+    color: '#0B0B0E',
+  },
+  addBizPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  addBizPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0B0B0E',
   },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   kpiCard: {
-    flex: 1,
-    minWidth: '47%',
-    backgroundColor: '#121215',
-    borderRadius: 14,
-    padding: 14,
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 14,
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   kpiCardActive: {
-    borderColor: 'rgba(197, 160, 89, 0.5)',
+    borderColor: '#C5A059',
+    backgroundColor: '#FCFAF5',
   },
   kpiHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   kpiLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#71717A',
-    letterSpacing: 0.5,
+    color: '#8E8B99',
+    letterSpacing: 0.8,
   },
   kpiIconWrapAmber: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiIconWrapGold: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(197, 160, 89, 0.12)',
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#FAF2DF',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiIconWrapGreen: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiIconWrapStatus: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statusIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#059669',
   },
   kpiValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
+    color: '#0B0B0E',
+    letterSpacing: -0.5,
   },
   kpiValueStatus: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    color: '#059669',
   },
   kpiSubRow: {
     flexDirection: 'row',
@@ -2025,35 +1976,37 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pulseDotAmber: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: '#F59E0B',
   },
   kpiSubAmber: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: '#D97706',
   },
   kpiSubMuted: {
     fontSize: 11,
-    color: '#71717A',
+    color: '#8E8B99',
     marginTop: 4,
   },
   kpiSubGreen: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#10B981',
+    fontWeight: '700',
+    color: '#059669',
     marginTop: 4,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#18181B',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E8E6E1',
+    marginVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 6,
   },
   tabButton: {
     flex: 1,
@@ -2062,256 +2015,269 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    borderRadius: 9,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F7',
   },
   tabButtonActive: {
-    backgroundColor: '#C5A059',
+    backgroundColor: '#0B0B0E',
   },
   tabButtonText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4A4852',
   },
   tabButtonTextActive: {
-    color: '#09090B',
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   tabSection: {
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
-    paddingVertical: 48,
+    padding: 30,
     alignItems: 'center',
-    gap: 12,
   },
   loadingText: {
-    color: '#A1A1AA',
     fontSize: 13,
+    color: '#8E8B99',
+    marginTop: 10,
   },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   filterChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#18181B',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   filterChipActive: {
-    backgroundColor: 'rgba(197, 160, 89, 0.15)',
-    borderColor: '#C5A059',
+    backgroundColor: '#0B0B0E',
+    borderColor: '#0B0B0E',
   },
   filterChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#A1A1AA',
+    color: '#4A4852',
   },
   filterChipTextActive: {
-    color: '#C5A059',
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   inquiryCard: {
-    backgroundColor: '#121215',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   inquiryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   customerAvatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#27272A',
-    borderWidth: 1,
-    borderColor: '#C5A059',
-    justifyContent: 'center',
+    backgroundColor: '#FAF2DF',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
   },
   customerInitial: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#C5A059',
-  },
-  customerMeta: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  customerName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#8C6F34',
+  },
+  customerMeta: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#0B0B0E',
   },
   customerPhone: {
-    fontSize: 12,
-    color: '#71717A',
+    fontSize: 11.5,
+    color: '#8E8B99',
     marginTop: 1,
   },
   statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: '#27272A',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   statusPillAmber: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
   },
   statusPillEmerald: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
   },
   statusPillRed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
   },
   statusPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   statusPillTextAmber: {
-    color: '#F59E0B',
+    color: '#D97706',
   },
   statusPillTextEmerald: {
-    color: '#10B981',
+    color: '#059669',
   },
   statusPillTextRed: {
-    color: '#EF4444',
+    color: '#E11D48',
   },
   inquirySpecsBox: {
-    backgroundColor: '#18181B',
-    borderRadius: 10,
-    padding: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
   },
   inquirySpecItem: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    gap: 4,
   },
   inquirySpecLabel: {
-    fontSize: 11,
-    color: '#71717A',
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#8E8B99',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   inquirySpecValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
   },
   inquirySpecValueGold: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#C5A059',
+    color: '#8C6F34',
   },
   notesBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: '#FCFAF5',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 12,
   },
   notesText: {
     fontSize: 12,
-    fontStyle: 'italic',
-    color: '#A1A1AA',
+    color: '#4A4852',
+    lineHeight: 16,
   },
   inquiryActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
   },
   approveBtn: {
-    flex: 1,
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#059669',
-    paddingVertical: 9,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   approveBtnText: {
-    color: '#FFFFFF',
     fontSize: 12.5,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   declineBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F7',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: '#E8E6E1',
   },
   actionIconBtnWhatsApp: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#25D366',
-    justifyContent: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#059669',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actionIconBtnPhone: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#0B0B0E',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
   },
   sectionSub: {
-    fontSize: 11.5,
-    color: '#71717A',
+    fontSize: 12,
+    color: '#8E8B99',
     marginTop: 2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#C5A059',
+    gap: 5,
+    backgroundColor: '#0B0B0E',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   addBtnText: {
-    color: '#09090B',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   pricingCard: {
-    backgroundColor: '#121215',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   pricingCardTop: {
     flexDirection: 'row',
@@ -2319,32 +2285,115 @@ const styles = StyleSheet.create({
   },
   pricingTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: '#0B0B0E',
   },
   pricingSub: {
-    fontSize: 11.5,
-    color: '#71717A',
+    fontSize: 12,
+    color: '#4A4852',
     marginTop: 2,
   },
   pricePill: {
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     alignItems: 'flex-end',
   },
   pricePillText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#C5A059',
+    color: '#0B0B0E',
   },
   pricePillUnit: {
     fontSize: 10,
-    color: '#71717A',
+    color: '#8E8B99',
+  },
+  vendorStartingPriceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#C5A059',
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#C5A059',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  vendorStartingPriceLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#8C6F34',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  vendorStartingPriceValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0B0B0E',
+  },
+  vendorNegotiableBadge: {
+    backgroundColor: '#FCFAF5',
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  vendorNegotiableBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8C6F34',
+  },
+  vendorCategoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#8C6F34',
+    letterSpacing: 0.5,
+  },
+  vendorMiniNegotiableTag: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  vendorMiniNegotiableTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  ceremonyOfferChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  ceremonyOfferChipText: {
+    fontSize: 11,
+    color: '#0B0B0E',
+    fontWeight: '600',
   },
   marginExplanationCard: {
-    backgroundColor: 'rgba(197, 160, 89, 0.08)',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: '#FCFAF5',
     borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.25)',
+    borderColor: '#E8DEC8',
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 10,
   },
   marginHeader: {
     flexDirection: 'row',
@@ -2355,146 +2404,142 @@ const styles = StyleSheet.create({
   marginTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#C5A059',
+    color: '#8C6F34',
   },
   marginBody: {
     fontSize: 12,
-    color: '#A1A1AA',
-    lineHeight: 18,
-    marginBottom: 8,
+    color: '#4A4852',
+    lineHeight: 16,
   },
   marginFormulaRow: {
-    backgroundColor: '#121215',
-    borderRadius: 6,
-    padding: 8,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E8DEC8',
   },
   formulaText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C5A059',
-    textAlign: 'center',
+    color: '#8C6F34',
   },
   historyContainer: {
     marginTop: 10,
   },
   historyTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: '#0B0B0E',
     marginBottom: 8,
   },
   historyEmptyText: {
     fontSize: 12,
-    color: '#71717A',
+    color: '#8E8B99',
+    textAlign: 'center',
+    paddingVertical: 14,
   },
   historyRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#121215',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#E8E6E1',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
   historyItemName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
   },
   historyProposed: {
     fontSize: 11.5,
-    color: '#C5A059',
+    color: '#8E8B99',
     marginTop: 2,
   },
   historyStatusPill: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#FEF3C7',
   },
   historyStatusApproved: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: '#ECFDF5',
   },
   historyStatusRejected: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: '#FFF1F2',
   },
   historyStatusText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#F59E0B',
+    fontWeight: '700',
+    color: '#D97706',
   },
   historyStatusTextApproved: {
-    color: '#10B981',
+    color: '#059669',
   },
   historyStatusTextRejected: {
-    color: '#EF4444',
+    color: '#E11D48',
   },
   reelsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   reelCard: {
-    width: '48%',
-    aspectRatio: 9 / 14,
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#18181B',
-    position: 'relative',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E8E6E1',
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   reelThumb: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    height: 180,
   },
   reelPlayOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 11, 14, 0.35)',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
   },
   playIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderWidth: 1.5,
-    borderColor: '#C5A059',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-    paddingLeft: 3,
+    justifyContent: 'center',
   },
   reelInfoOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 10,
-    backgroundColor: 'rgba(9, 9, 11, 0.85)',
+    padding: 12,
+    backgroundColor: 'rgba(11, 11, 14, 0.75)',
   },
   reelCardTitle: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   reelDuration: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#C5A059',
     marginTop: 2,
-    fontWeight: '600',
   },
   gallerySection: {
-    marginTop: 16,
+    marginTop: 14,
   },
   galleryTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    fontWeight: '800',
+    color: '#0B0B0E',
+    marginBottom: 8,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -2503,22 +2548,26 @@ const styles = StyleSheet.create({
   },
   photoWrap: {
     width: '31%',
-    aspectRatio: 1,
+    height: 90,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#18181B',
   },
   photoItem: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   specsMatrixCard: {
-    backgroundColor: '#121215',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#0B0B0E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   specGridRow: {
     flexDirection: 'row',
@@ -2532,362 +2581,322 @@ const styles = StyleSheet.create({
   specGridVal: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 6,
+    color: '#0B0B0E',
   },
   specGridName: {
     fontSize: 11,
-    color: '#71717A',
+    color: '#8E8B99',
     marginTop: 2,
   },
   specGridDivider: {
     width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 32,
+    backgroundColor: '#E8E6E1',
   },
   specGridRowDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#E8E6E1',
     marginVertical: 4,
   },
   contactCard: {
-    backgroundColor: '#121215',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 10,
+    borderColor: '#E8E6E1',
+    padding: 16,
+    marginBottom: 12,
   },
   contactTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#C5A059',
-    marginBottom: 4,
+    color: '#0B0B0E',
+    marginBottom: 10,
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F7',
   },
   contactText: {
-    fontSize: 12.5,
-    color: '#D4D4D8',
+    fontSize: 13,
+    color: '#4A4852',
+    fontWeight: '600',
   },
   emptyCard: {
-    backgroundColor: '#121215',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 30,
+    alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
     marginTop: 12,
   },
   emptySub: {
     fontSize: 12.5,
-    color: '#71717A',
+    color: '#8E8B99',
     textAlign: 'center',
+    marginTop: 4,
     lineHeight: 18,
-    marginTop: 6,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(11, 11, 14, 0.55)',
+    justifyContent: 'flex-end',
   },
   modalDialog: {
-    backgroundColor: '#121215',
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '85%',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.3)',
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    paddingBottom: 12,
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#A1A1AA',
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#8C6F34',
+    letterSpacing: 0.6,
     marginBottom: 6,
-    marginTop: 10,
   },
   textInput: {
-    backgroundColor: '#18181B',
-    borderRadius: 10,
+    backgroundColor: '#F5F5F7',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E8E6E1',
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13.5,
-    color: '#FFFFFF',
+    fontSize: 14,
+    color: '#0B0B0E',
   },
   textInputDisabled: {
-    backgroundColor: '#1F1F24',
-    color: '#71717A',
+    backgroundColor: '#E8E6E1',
+    color: '#8E8B99',
   },
   submitModalBtn: {
-    backgroundColor: '#C5A059',
-    borderRadius: 12,
-    paddingVertical: 13,
+    backgroundColor: '#0B0B0E',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
+    justifyContent: 'center',
+    marginTop: 16,
   },
   submitModalBtnText: {
-    color: '#09090B',
     fontSize: 14,
-    fontWeight: '800',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#09090B',
-    padding: 20,
-  },
-  loadingText: {
-    color: '#A1A1AA',
-    marginTop: 12,
-    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   onboardingContainer: {
-    gap: 16,
+    padding: 16,
   },
   onboardingHeroCard: {
-    backgroundColor: '#121215',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
     padding: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.3)',
     marginBottom: 16,
   },
   goldCrestCircle: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: 'rgba(197, 160, 89, 0.15)',
-    justifyContent: 'center',
+    backgroundColor: '#FAF2DF',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#C5A059',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   onboardingBadge: {
-    backgroundColor: 'rgba(197, 160, 89, 0.2)',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingVertical: 3,
+    borderRadius: 12,
     marginBottom: 8,
   },
   onboardingBadgeText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '800',
-    color: '#C5A059',
-    letterSpacing: 1,
+    color: '#059669',
   },
   onboardingTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
     textAlign: 'center',
-    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   onboardingSubtitle: {
     fontSize: 13,
-    color: '#A1A1AA',
+    color: '#4A4852',
     textAlign: 'center',
-    lineHeight: 19,
+    marginTop: 6,
+    lineHeight: 18,
   },
   onboardingFormCard: {
-    backgroundColor: '#121215',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E8E6E1',
+    padding: 16,
   },
   onboardingFormTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
     marginBottom: 12,
-    letterSpacing: 0.3,
   },
   categorySelectGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   categoryOptionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1C1C21',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 12,
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1.5,
+    borderColor: '#E8E6E1',
+    borderRadius: 14,
+    padding: 12,
   },
   categoryOptionCardActive: {
-    backgroundColor: '#C5A059',
+    backgroundColor: '#FCFAF5',
     borderColor: '#C5A059',
   },
   categoryOptionText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#E4E4E7',
+    color: '#4A4852',
   },
   categoryOptionTextActive: {
-    color: '#09090B',
+    color: '#8C6F34',
   },
   localityChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginTop: 6,
+    marginBottom: 12,
   },
   localityChip: {
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#1C1C21',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
   },
   localityChipActive: {
-    backgroundColor: 'rgba(197, 160, 89, 0.2)',
-    borderColor: '#C5A059',
+    backgroundColor: '#0B0B0E',
+    borderColor: '#0B0B0E',
   },
   localityChipText: {
-    fontSize: 11,
-    color: '#A1A1AA',
+    fontSize: 11.5,
     fontWeight: '600',
+    color: '#4A4852',
   },
   localityChipTextActive: {
-    color: '#C5A059',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   formRowTwoCol: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 10,
   },
   presetsPhotoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    marginVertical: 10,
   },
   presetPhotoCard: {
-    width: '48%',
+    width: 90,
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    backgroundColor: '#1C1C21',
-    position: 'relative',
+    borderColor: '#E8E6E1',
+    backgroundColor: '#F5F5F7',
   },
   presetPhotoCardActive: {
     borderColor: '#C5A059',
   },
   presetPhotoImg: {
     width: '100%',
-    height: 80,
+    height: 60,
   },
   presetSelectedBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: '#C5A059',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#059669',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   presetPhotoLabel: {
-    fontSize: 10,
-    color: '#D4D4D8',
-    padding: 6,
+    fontSize: 9.5,
+    color: '#0B0B0E',
+    padding: 4,
     fontWeight: '600',
   },
   publishSubmitBtn: {
-    backgroundColor: '#C5A059',
-    borderRadius: 12,
-    paddingVertical: 14,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    marginTop: 22,
+    backgroundColor: '#0B0B0E',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 16,
   },
   publishSubmitBtnText: {
-    color: '#09090B',
     fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  addBizPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: 'rgba(197, 160, 89, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.4)',
-    borderStyle: 'dashed',
-    gap: 4,
-  },
-  addBizPillText: {
-    fontSize: 12,
-    color: '#C5A059',
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   modalFormCard: {
-    backgroundColor: '#121215',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    marginHorizontal: 16,
-    marginTop: 40,
-    borderWidth: 1,
-    borderColor: 'rgba(197, 160, 89, 0.3)',
+    maxHeight: '90%',
   },
   modalHeading: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B0B0E',
   },
   modalSubheading: {
     fontSize: 12,
-    color: '#A1A1AA',
+    color: '#8E8B99',
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#27272A',
-    justifyContent: 'center',
+    backgroundColor: '#F5F5F7',
     alignItems: 'center',
+    justifyContent: 'center',
   },
 });
