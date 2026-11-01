@@ -1,3 +1,6 @@
+// Local store for vendor applications across session
+const localVendorApplicationsMap = new Map<string, VendorApplication>();
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   Business,
@@ -263,6 +266,8 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
               : undefined,
             decor_items: b.decor_items || [],
             catering_packages: b.catering_packages || [],
+            photography_packages: b.photography_packages || [],
+            dj_sound_packages: b.dj_sound_packages || [],
             media_reels: b.media_reels || [],
           };
         });
@@ -373,6 +378,19 @@ export async function getBusinessById(id: string): Promise<Business | null> {
         .eq('id', id)
         .maybeSingle();
 
+      let photoPackages: any[] = [];
+      let djPackages: any[] = [];
+
+      try {
+        const { data: pp } = await supabase.from('photography_packages').select('*').eq('business_id', id);
+        if (pp && pp.length > 0) photoPackages = pp;
+      } catch (e) {}
+
+      try {
+        const { data: dp } = await supabase.from('dj_sound_packages').select('*').eq('business_id', id);
+        if (dp && dp.length > 0) djPackages = dp;
+      } catch (e) {}
+
       if (!error && data) {
         const v = Array.isArray(data.vendors) ? data.vendors[0] : data.vendors;
         const vd = Array.isArray(data.venue_details) ? data.venue_details[0] : data.venue_details;
@@ -428,8 +446,22 @@ export async function getBusinessById(id: string): Promise<Business | null> {
             : (mockMatch?.catering_packages || []),
           catering_addons: mockMatch?.catering_addons || [],
           catering_items: mockMatch?.catering_items || [],
-          photography_packages: mockMatch?.photography_packages || [],
-          dj_sound_packages: mockMatch?.dj_sound_packages || [],
+          photography_packages: photoPackages.length > 0
+            ? photoPackages.map((pp: any) => ({
+                ...pp,
+                price: Number(pp.price || pp.base_price || 45000),
+                is_negotiable: pp.is_negotiable ?? true,
+                deliverables: Array.isArray(pp.deliverables) ? pp.deliverables : [],
+              }))
+            : (mockMatch?.photography_packages || []),
+          dj_sound_packages: djPackages.length > 0
+            ? djPackages.map((dp: any) => ({
+                ...dp,
+                price: Number(dp.price || dp.base_price || 25000),
+                is_negotiable: dp.is_negotiable ?? true,
+                equipment_included: Array.isArray(dp.equipment_included) ? dp.equipment_included : [],
+              }))
+            : (mockMatch?.dj_sound_packages || []),
           media_reels: data.media_reels && data.media_reels.length > 0 ? data.media_reels : (mockMatch?.media_reels || []),
           availability_calendar: mockMatch?.availability_calendar || [],
         };
@@ -1374,29 +1406,32 @@ const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
   dj_sound: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800',
 };
 
-export async function getVendorBusinesses(user: UserProfile | null): Promise<Business[]> {
+export async function getVendorBusinesses(user: UserProfile | string | null): Promise<Business[]> {
   if (!user) return [];
+  const activeUser: UserProfile = typeof user === 'string'
+    ? { id: user, phone: user, role: 'vendor', isProfileComplete: true }
+    : user;
 
   // Demo account: GM Narayana Rao for Grand Swarna Group
-  if (user.id === 'usr-vend-1') {
+  if (activeUser.id === 'usr-vend-1') {
     return vendorBusinessesStore;
   }
   // Demo account: Chef Rambabu for Annapurna Royal Caterers
-  if (user.id === 'usr-vend-2') {
+  if (activeUser.id === 'usr-vend-2') {
     return MOCK_BUSINESSES.filter((b) => b.id === '44444444-4444-4444-4444-444444444444');
   }
 
   // Live Supabase query for actual authenticated user
   if (supabase) {
     try {
-      const cleanPhone = user.phone ? user.phone.replace(/[^0-9]/g, '').slice(-10) : '';
-      const cleanEmail = user.email ? user.email.trim().toLowerCase() : '';
+      const cleanPhone = activeUser.phone ? activeUser.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+      const cleanEmail = activeUser.email ? activeUser.email.trim().toLowerCase() : '';
 
       // 1. Find vendor IDs owned by this user
       let vendorIds: string[] = [];
       const orClauses: string[] = [];
-      if (user.id && !user.id.startsWith('user-')) {
-        orClauses.push(`auth_user_id.eq.${user.id}`);
+      if (activeUser.id && !activeUser.id.startsWith('user-')) {
+        orClauses.push(`auth_user_id.eq.${activeUser.id}`);
       }
       if (cleanPhone) {
         orClauses.push(`phone.ilike.%${cleanPhone}%`);
@@ -1427,15 +1462,15 @@ export async function getVendorBusinesses(user: UserProfile | null): Promise<Bus
           media_reels (*)
         `);
 
-      if (vendorIds.length > 0 && user.businessId) {
-        bizQuery = bizQuery.or(`vendor_id.in.(${vendorIds.join(',')}),id.eq.${user.businessId}`);
+      if (vendorIds.length > 0 && activeUser.businessId) {
+        bizQuery = bizQuery.or(`vendor_id.in.(${vendorIds.join(',')}),id.eq.${activeUser.businessId}`);
       } else if (vendorIds.length > 0) {
         bizQuery = bizQuery.in('vendor_id', vendorIds);
-      } else if (user.businessId) {
-        bizQuery = bizQuery.eq('id', user.businessId);
+      } else if (activeUser.businessId) {
+        bizQuery = bizQuery.eq('id', activeUser.businessId);
       } else {
         // Fresh vendor with zero businesses
-        const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === user.id);
+        const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === activeUser.id);
         return createdForUser.map((c) => c.business);
       }
 
@@ -1456,8 +1491,8 @@ export async function getVendorBusinesses(user: UserProfile | null): Promise<Bus
             gallery_images: b.gallery_images || [],
             rating_avg: v?.rating_avg ? Number(v.rating_avg) : 5.0,
             review_count: v?.review_count || 0,
-            phone: v?.phone || user.phone || '+91 98480 12345',
-            whatsapp_number: v?.whatsapp_number || user.phone || '919848012345',
+            phone: v?.phone || activeUser.phone || '',
+            whatsapp_number: v?.whatsapp_number || activeUser.phone || '',
             is_verified: v?.is_verified ?? true,
             is_active: b.is_active ?? true,
             venue_details: vd
@@ -1476,6 +1511,8 @@ export async function getVendorBusinesses(user: UserProfile | null): Promise<Bus
               : undefined,
             catering_packages: b.catering_packages || [],
             decor_items: b.decor_items || [],
+            photography_packages: b.photography_packages || [],
+            dj_sound_packages: b.dj_sound_packages || [],
             media_reels: b.media_reels || [],
           };
         });
@@ -1486,7 +1523,7 @@ export async function getVendorBusinesses(user: UserProfile | null): Promise<Bus
   }
 
   // Fallback: If this fresh user created any in this local session
-  const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === user.id);
+  const createdForUser = localUserCreatedBusinesses.filter((b) => b.ownerId === activeUser.id);
   if (createdForUser.length > 0) {
     return createdForUser.map((c) => c.business);
   }
@@ -1704,6 +1741,17 @@ export async function submitVendorApplication(
   user: UserProfile,
   application: Omit<VendorApplication, 'id' | 'created_at'>
 ): Promise<boolean> {
+  const newAppRecord: VendorApplication = {
+    ...application,
+    id: `app-${Date.now()}`,
+    created_at: new Date().toISOString(),
+  };
+  localVendorApplicationsMap.set(user.id, newAppRecord);
+  if (user.phone) {
+    const cleanP = user.phone.replace(/\D/g, '').slice(-10);
+    if (cleanP) localVendorApplicationsMap.set(cleanP, newAppRecord);
+  }
+
   try {
     if (supabase) {
       await supabase.from('vendor_applications').insert({
@@ -1743,13 +1791,27 @@ export async function submitVendorApplication(
   }
 }
 
-export async function getVendorApplication(userId: string): Promise<VendorApplication | null> {
+export async function getVendorApplication(userId: string, userPhone?: string): Promise<VendorApplication | null> {
+  if (localVendorApplicationsMap.has(userId)) {
+    return localVendorApplicationsMap.get(userId) || null;
+  }
+  const cleanP = (userPhone || userId).replace(/\D/g, '').slice(-10);
+  if (cleanP && localVendorApplicationsMap.has(cleanP)) {
+    return localVendorApplicationsMap.get(cleanP) || null;
+  }
+
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('vendor_applications')
-        .select('*')
-        .eq('user_id', userId)
+      const cleanPhone = (userPhone || userId).replace(/\D/g, '').slice(-10);
+      let query = supabase.from('vendor_applications').select('*');
+
+      if (cleanPhone && cleanPhone.length === 10) {
+        query = query.or(`user_id.eq.${userId},phone.ilike.%${cleanPhone}%`);
+      } else {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -1981,8 +2043,8 @@ export async function approveVendorApplicationAndCreateBusiness(
       category,
       city,
       area_locality: locality,
-      phone: app?.phone || user.phone || '+91 98480 12345',
-      whatsapp_number: app?.whatsapp_number || app?.phone || user.phone || '+91 98480 12345',
+      phone: app?.phone || user.phone || '',
+      whatsapp_number: app?.whatsapp_number || app?.phone || user.phone || '',
       base_price: startingPrice,
       cover_image_url: coverUrl,
     });

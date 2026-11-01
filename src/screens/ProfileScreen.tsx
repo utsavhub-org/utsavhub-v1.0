@@ -60,6 +60,7 @@ import {
   getBusinessReviews,
   getUserWishlists,
   getCustomerBookings,
+  getVendorApplication,
   approveVendorApplicationAndCreateBusiness,
 } from '../lib/supabaseClient';
 
@@ -293,20 +294,30 @@ export default function ProfileScreen({
     }
   };
 
-  // Fetch real booking and wishlist counts for user
+  const [submittedApp, setSubmittedApp] = useState<any>(null);
+
+  // Fetch real booking and wishlist counts for user + partner application
   useEffect(() => {
     async function loadStats() {
       if (currentUser) {
         const uid = currentUser.id || currentUser.phone || currentUser.email || '';
-        const [savedWishlist, savedBookings] = await Promise.all([
+        const [savedWishlist, savedBookings, app] = await Promise.all([
           getUserWishlists(uid),
           getCustomerBookings(currentUser.phone || currentUser.email || uid),
+          getVendorApplication(currentUser.id || uid),
         ]);
         setWishlistCount(savedWishlist.length);
         setBookingCount(savedBookings.length);
+        if (app) {
+          setSubmittedApp(app);
+          if (currentUser.vendorApplicationStatus !== app.status) {
+            updateProfile({ vendorApplicationStatus: app.status as any });
+          }
+        }
       } else {
         setWishlistCount(0);
         setBookingCount(0);
+        setSubmittedApp(null);
       }
     }
     loadStats();
@@ -648,16 +659,7 @@ export default function ProfileScreen({
                   businessId: createdBiz?.id,
                   businessName: createdBiz?.name || currentUser.businessName,
                 });
-                Alert.alert(
-                  '✅ Verification Approved!',
-                  `Your partner application for "${createdBiz?.name || 'Your Business'}" has been verified by UtsavHub Admin! Your Vendor Dashboard is now live.`,
-                  [
-                    {
-                      text: 'Open Partner Dashboard',
-                      onPress: switchRole,
-                    },
-                  ]
-                );
+                switchRole();
               }}
               activeOpacity={0.8}
             >

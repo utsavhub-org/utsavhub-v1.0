@@ -315,8 +315,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchRole = () => {
     if (!currentUser) return;
-    const newRole: UserRole = userRole === 'customer' ? 'vendor' : 'customer';
-    updateProfile({ role: newRole });
+    if (userRole === 'customer') {
+      // Only permit switching to vendor if user is approved partner
+      if (currentUser.role === 'vendor' || currentUser.vendorApplicationStatus === 'approved') {
+        updateProfile({ role: 'vendor' });
+      }
+    } else {
+      updateProfile({ role: 'customer' });
+    }
   };
 
   const openAuthModal = () => setIsAuthModalVisible(true);
