@@ -165,8 +165,8 @@ export default function VendorDashboardScreen({
   const [parkingCars, setParkingCars] = useState('100');
   const [outsideFood, setOutsideFood] = useState(true);
   const [powerBackup, setPowerBackup] = useState('125');
-  const [phoneContact, setPhoneContact] = useState('+91 98480 12345');
-  const [whatsappContact, setWhatsappContact] = useState('+91 98480 12345');
+  const [phoneContact, setPhoneContact] = useState(currentUser?.phone || '');
+  const [whatsappContact, setWhatsappContact] = useState(currentUser?.phone || '');
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Fetch all business data
@@ -190,8 +190,8 @@ export default function VendorDashboardScreen({
       if (bizData) {
         setBusiness(bizData);
         setBizName(bizData.name);
-        setPhoneContact(bizData.phone || '+91 98480 12345');
-        setWhatsappContact(bizData.whatsapp_number || '+91 98480 12345');
+        setPhoneContact(bizData.phone || currentUser?.phone || '');
+        setWhatsappContact(bizData.whatsapp_number || currentUser?.phone || '');
         if (bizData.venue_details) {
           const vd = bizData.venue_details;
           setSeatingCap(String(vd.seating_capacity || 600));
@@ -533,7 +533,7 @@ export default function VendorDashboardScreen({
               style={styles.textInput}
               value={newBizPhone}
               onChangeText={setNewBizPhone}
-              placeholder="+91 98480 12345"
+              placeholder="Enter 10-digit mobile number"
               placeholderTextColor="#8E8B99"
               keyboardType="phone-pad"
             />
@@ -544,7 +544,7 @@ export default function VendorDashboardScreen({
               style={styles.textInput}
               value={newBizWhatsapp}
               onChangeText={setNewBizWhatsapp}
-              placeholder="+91 98480 12345"
+              placeholder="Enter 10-digit mobile number"
               placeholderTextColor="#8E8B99"
               keyboardType="phone-pad"
             />
@@ -1854,7 +1854,7 @@ export default function VendorDashboardScreen({
                 style={styles.textInput}
                 value={phoneContact}
                 onChangeText={setPhoneContact}
-                placeholder="+91 98480 12345"
+                placeholder="Enter 10-digit mobile number"
                 placeholderTextColor="#8E8B99"
               />
 
@@ -1863,7 +1863,7 @@ export default function VendorDashboardScreen({
                 style={styles.textInput}
                 value={whatsappContact}
                 onChangeText={setWhatsappContact}
-                placeholder="+91 98480 12345"
+                placeholder="Enter 10-digit mobile number"
                 placeholderTextColor="#8E8B99"
               />
 

@@ -462,14 +462,23 @@ export default function ProfileScreen({
       {/* Top Header Card */}
       <View style={styles.header}>
         <View style={styles.topControlRow}>
-          <TouchableOpacity
-            style={styles.switchRoleBtn}
-            onPress={switchRole}
-            activeOpacity={0.7}
-          >
-            <Building size={14} color={THEME.colors.textPrimary} />
-            <Text style={styles.switchRoleBtnText}>Switch to Vendor Mode</Text>
-          </TouchableOpacity>
+          {currentUser.vendorApplicationStatus === 'approved' || userRole === 'vendor' ? (
+            <TouchableOpacity
+              style={styles.switchRoleBtn}
+              onPress={switchRole}
+              activeOpacity={0.7}
+            >
+              <Building size={14} color={THEME.colors.textPrimary} />
+              <Text style={styles.switchRoleBtnText}>
+                {userRole === 'vendor' ? 'Switch to Customer Mode' : 'Open Vendor Dashboard'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.customerAccountBadge}>
+              <User size={13} color="#64748B" />
+              <Text style={styles.customerAccountBadgeText}>Customer Account</Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.changeUserBtn}
@@ -958,14 +967,26 @@ export default function ProfileScreen({
               {/* Mobile Phone Number */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Mobile Phone Number (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={formPhone}
-                  onChangeText={(txt) => setFormPhone(txt.replace(/[^\d+]/g, ''))}
-                  placeholder="e.g. 98480 12345 (For booking confirmation alerts)"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                />
+                <View style={styles.profilePhoneInputRow}>
+                  <View style={styles.profileCountryBadge}>
+                    <Text style={{ fontSize: 14 }}>🇮🇳</Text>
+                    <Text style={styles.profileCountryCode}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={styles.profilePhoneTextInput}
+                    value={formPhone.replace(/\D/g, '').slice(0, 10)}
+                    onChangeText={(txt) => setFormPhone(txt.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="Enter 10-digit mobile number"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                  {/^[6-9]\d{9}$/.test(formPhone.replace(/\D/g, '')) && (
+                    <View style={{ paddingRight: 10 }}>
+                      <CheckCircle2 size={16} color="#059669" />
+                    </View>
+                  )}
+                </View>
               </View>
 
               {/* Role Toggle */}
@@ -1454,6 +1475,54 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     marginBottom: 16,
+  },
+  customerAccountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  customerAccountBadgeText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#64748B',
+  },
+  profilePhoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  profileCountryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#F8FAFC',
+    borderRightWidth: 1,
+    borderRightColor: THEME.colors.border,
+  },
+  profileCountryCode: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 13,
+    color: THEME.colors.textPrimary,
+  },
+  profilePhoneTextInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: THEME.fonts.medium,
+    fontSize: 14,
+    color: THEME.colors.textPrimary,
   },
   switchRoleBtn: {
     flexDirection: 'row',
