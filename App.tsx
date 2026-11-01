@@ -17,7 +17,9 @@ import VendorDetailScreen from './src/screens/VendorDetailScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { QuotationCartProvider, useQuotationCart } from './src/context/QuotationCartContext';
 import AuthModal from './src/components/AuthModal';
+import QuotationCartModal from './src/components/QuotationCartModal';
 import AppOpeningIntro from './src/components/AppOpeningIntro';
 import { getUserWishlists } from './src/lib/supabaseClient';
 import { THEME } from './src/theme/colors';
@@ -27,6 +29,7 @@ type ScreenType = 'home' | 'listings' | 'bookings' | 'profile' | 'vendor';
 
 function MainNavigator() {
   const { userRole, currentUser, registerNavHandler } = useAuth();
+  const { isCartOpen, closeCart } = useQuotationCart();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [prevScreen, setPrevScreen] = useState<ScreenType>('home');
   const [activeTabNav, setActiveTabNav] = useState<'home' | 'explore' | 'bookings' | 'profile'>('home');
@@ -181,6 +184,16 @@ function MainNavigator() {
         {/* Global Auth Modal */}
         <AuthModal />
 
+        {/* Global Quotation Request Cart Modal */}
+        <QuotationCartModal
+          visible={isCartOpen}
+          onClose={closeCart}
+          onQuotationSuccess={() => {
+            setActiveTabNav('bookings');
+            setCurrentScreen('bookings');
+          }}
+        />
+
         {/* Bottom Tab Navigation Bar (1. Home, 2. Explore, 3. My Bookings, 4. Profile / Vendor Portal) */}
         {currentScreen !== 'vendor' && (
           <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -310,10 +323,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <MainNavigator />
-        {showSplashIntro && (
-          <AppOpeningIntro onAnimationFinish={() => setShowSplashIntro(false)} />
-        )}
+        <QuotationCartProvider>
+          <MainNavigator />
+          {showSplashIntro && (
+            <AppOpeningIntro onAnimationFinish={() => setShowSplashIntro(false)} />
+          )}
+        </QuotationCartProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

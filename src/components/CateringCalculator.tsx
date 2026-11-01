@@ -7,8 +7,10 @@ import {
   Linking,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Utensils, Users, Check, MessageCircle, FileText } from 'lucide-react-native';
+import { Utensils, Users, Check, MessageCircle, FileText, ShoppingBag } from 'lucide-react-native';
 import { CateringPackage, Business } from '../types';
+import { useQuotationCart } from '../context/QuotationCartContext';
+import { playSuccessSound } from '../lib/soundManager';
 
 interface CateringCalculatorProps {
   packages: CateringPackage[];
@@ -23,6 +25,7 @@ export default function CateringCalculator({
   defaultGuests = 300,
   onTotalChange,
 }: CateringCalculatorProps) {
+  const { addItem } = useQuotationCart();
   const [selectedPkgId, setSelectedPkgId] = useState<string>(packages[0]?.id || '');
   const [guests, setGuests] = useState<number>(defaultGuests);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
@@ -268,6 +271,35 @@ export default function CateringCalculator({
         </View>
       )}
 
+      {/* Add to Quotation Cart Button */}
+      {currentPkg && (
+        <TouchableOpacity
+          style={styles.quoteCartBtn}
+          onPress={() => {
+            playSuccessSound();
+            addItem({
+              id: currentPkg.id || `cp-${Date.now()}`,
+              businessId: business.id,
+              businessName: business.name,
+              businessCategory: 'catering',
+              categoryType: currentPkg.diet_type || 'mixed',
+              title: `${currentPkg.package_name} (${guests} Guests)`,
+              specsSummary: `₹${pricePerPlate}/plate • ${guests} Plates • Live counters included`,
+              unitPrice: total,
+              quantity: 1,
+              unitLabel: 'feast',
+              sampleImage: business.cover_image_url,
+            });
+          }}
+          activeOpacity={0.85}
+        >
+          <ShoppingBag size={16} color="#0B0B0E" />
+          <Text style={styles.quoteCartBtnText}>
+            Add Feast to Quotation (₹{total.toLocaleString('en-IN')})
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* WhatsApp Quick CTA */}
       <TouchableOpacity
         style={styles.waBtn}
@@ -282,6 +314,22 @@ export default function CateringCalculator({
 }
 
 const styles = StyleSheet.create({
+  quoteCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#C5A059',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  quoteCartBtnText: {
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 14,
+    color: '#0B0B0E',
+  },
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,

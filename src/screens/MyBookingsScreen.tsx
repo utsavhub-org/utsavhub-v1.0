@@ -24,9 +24,11 @@ import {
   Sparkles,
   AlertCircle,
   XCircle,
+  Check,
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import { getCustomerBookings } from '../lib/supabaseClient';
+import { getCustomerBookings, acceptCustomerQuotationOffer } from '../lib/supabaseClient';
+import { playActionSuccess, playButtonClick } from '../lib/soundManager';
 import { THEME } from '../theme/colors';
 
 interface MyBookingsScreenProps {
@@ -106,6 +108,26 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
 
   const handleCall = (number: string) => {
     Linking.openURL(`tel:${number}`);
+  };
+
+  const handleAcceptOffer = async (bookingId: string) => {
+    playButtonClick();
+    const ok = await acceptCustomerQuotationOffer(bookingId);
+    if (ok) {
+      playActionSuccess();
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? {
+                ...b,
+                status: 'approved',
+                negotiation_status: 'negotiation_accepted',
+                statusLabel: 'Negotiated Offer Accepted',
+              }
+            : b
+        )
+      );
+    }
   };
 
   return (
@@ -253,6 +275,62 @@ export default function MyBookingsScreen({ onExploreMore, onSelectVendor }: MyBo
                       <Text style={styles.amountText}>{booking.amount}</Text>
                     </View>
                   </View>
+
+                  {/* Quotation Itemized Breakdown */}
+                  {booking.cart_items && booking.cart_items.length > 0 && (
+                    <View style={styles.quoteItemsBox}>
+                      <View style={styles.quoteItemsHeader}>
+                        <Sparkles size={12} color="#C5A059" />
+                        <Text style={styles.quoteItemsHeaderText}>
+                          INCLUDED OFFERINGS & UTILITIES ({booking.cart_items.length})
+                        </Text>
+                      </View>
+                      {booking.cart_items.map((item: any, iIdx: number) => (
+                        <View key={iIdx} style={styles.quoteItemRow}>
+                          <Text style={styles.quoteItemTitle} numberOfLines={1}>
+                            • {item.quantity}x {item.title}
+                          </Text>
+                          <Text style={styles.quoteItemPrice}>
+                            ₹{(Number(item.unitPrice || 0) * (item.quantity || 1)).toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Vendor Counter-Offer Negotiation Banner */}
+                  {booking.vendor_counter_price ? (
+                    <View style={styles.counterOfferCard}>
+                      <View style={styles.counterOfferTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.counterOfferLabel}>🎉 REVISED QUOTATION OFFER</Text>
+                          <Text style={styles.counterOfferPrice}>
+                            ₹{booking.vendor_counter_price.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                        {booking.negotiation_status === 'negotiation_accepted' ? (
+                          <View style={styles.acceptedPill}>
+                            <CheckCircle2 size={12} color="#059669" />
+                            <Text style={styles.acceptedPillText}>Offer Accepted</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.acceptCounterBtn}
+                            onPress={() => handleAcceptOffer(booking.id)}
+                            activeOpacity={0.85}
+                          >
+                            <Check size={13} color="#FFFFFF" />
+                            <Text style={styles.acceptCounterBtnText}>Accept Offer</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {booking.vendor_counter_notes ? (
+                        <Text style={styles.counterNotesText}>
+                          "{booking.vendor_counter_notes}"
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
 
                   {booking.notes ? (
                     <View style={styles.notesBox}>
@@ -566,6 +644,105 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: '#059669',
     marginTop: 2,
+  },
+  quoteItemsBox: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 10,
+    marginBottom: 12,
+  },
+  quoteItemsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  quoteItemsHeaderText: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 9.5,
+    color: '#8A723D',
+    letterSpacing: 0.6,
+  },
+  quoteItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  quoteItemTitle: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#374151',
+    flex: 1,
+    marginRight: 8,
+  },
+  quoteItemPrice: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#0B0B0E',
+  },
+  counterOfferCard: {
+    backgroundColor: '#FFFDF9',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#C5A059',
+    padding: 12,
+    marginBottom: 12,
+  },
+  counterOfferTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  counterOfferLabel: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 10,
+    color: '#8A723D',
+    letterSpacing: 0.7,
+  },
+  counterOfferPrice: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 20,
+    color: '#0B0B0E',
+  },
+  counterNotesText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
+  acceptCounterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#059669',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  acceptCounterBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  acceptedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  acceptedPillText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#065F46',
   },
   notesBox: {
     backgroundColor: '#FAF6ED',

@@ -64,6 +64,8 @@ import {
   addVendorOffering,
   getVendorInquiries,
   updateInquiryStatus,
+  sendQuotationCounterOffer,
+  createVendorBusiness,
   updateBusinessProfile,
   DEFAULT_ADMIN_PERCENTAGE,
 } from '../lib/supabaseClient';
@@ -228,6 +230,23 @@ export default function VendorDashboardScreen({
   const [addOfferingModalVisible, setAddOfferingModalVisible] = useState(false);
   const [isSubmittingOffering, setIsSubmittingOffering] = useState(false);
 
+  // Negotiation Modal State
+  const [counterModalVisible, setCounterModalVisible] = useState(false);
+  const [selectedInquiryForCounter, setSelectedInquiryForCounter] = useState<BookingInquiry | null>(null);
+  const [counterPriceInput, setCounterPriceInput] = useState('');
+  const [counterNotesInput, setCounterNotesInput] = useState('');
+  const [submittingCounter, setSubmittingCounter] = useState(false);
+
+  // Business item sub-filter per business ID
+  const [businessSubFilters, setBusinessSubFilters] = useState<Record<string, string>>({});
+
+  // Add Business Capability Modal State
+  const [addBusinessModalVisible, setAddBusinessModalVisible] = useState(false);
+  const [newBizCategory, setNewBizCategory] = useState<BusinessCategory>('catering');
+  const [newBizName, setNewBizName] = useState('');
+  const [newBizPrice, setNewBizPrice] = useState('450');
+  const [creatingBusiness, setCreatingBusiness] = useState(false);
+
   // Offering form fields
   const [offeringTitle, setOfferingTitle] = useState('');
   const [offeringPrice, setOfferingPrice] = useState('');
@@ -327,6 +346,111 @@ export default function VendorDashboardScreen({
     } else {
       Alert.alert('Notice', 'Unable to update inquiry status. Please try again.');
     }
+  };
+
+  // Open Counter-Offer Negotiation Modal
+  const handleOpenCounterModal = (inq: BookingInquiry) => {
+    playButtonClick();
+    setSelectedInquiryForCounter(inq);
+    setCounterPriceInput(
+      String(inq.customer_target_budget || inq.final_customer_amount || inq.total_estimated_amount || '')
+    );
+    setCounterNotesInput('');
+    setCounterModalVisible(true);
+  };
+
+  // Send Revised Quotation Counter-Offer
+  const handleSendCounterOffer = async () => {
+    if (!selectedInquiryForCounter?.id || !counterPriceInput) return;
+    const price = Number(counterPriceInput);
+    if (isNaN(price) || price <= 0) {
+      Alert.alert('Invalid Price', 'Please enter a valid numeric amount for your counter-offer.');
+      return;
+    }
+
+    setSubmittingCounter(true);
+    playButtonClick();
+    try {
+      const ok = await sendQuotationCounterOffer(
+        selectedInquiryForCounter.id,
+        price,
+        counterNotesInput || 'Special discounted quotation package for your event.'
+      );
+      if (ok) {
+        playActionSuccess();
+        setInquiries((prev) =>
+          prev.map((i) =>
+            i.id === selectedInquiryForCounter.id
+              ? {
+                  ...i,
+                  vendor_counter_price: price,
+                  vendor_counter_notes: counterNotesInput,
+                  negotiation_status: 'counter_offered',
+                  status: 'approved',
+                }
+              : i
+          )
+        );
+        setCounterModalVisible(false);
+        Alert.alert(
+          'Counter-Offer Sent!',
+          `Your revised quotation of ₹${price.toLocaleString('en-IN')} has been sent to ${selectedInquiryForCounter.customer_name}.`
+        );
+      }
+    } catch {
+      Alert.alert('Notice', 'Unable to submit counter offer. Please try again.');
+    } finally {
+      setSubmittingCounter(false);
+    }
+  };
+
+  // Add Business Capability to Stack
+  const handleCreateBusinessCapability = async () => {
+    if (!newBizName.trim()) {
+      Alert.alert('Required', 'Please enter a business or brand name.');
+      return;
+    }
+    setCreatingBusiness(true);
+    playButtonClick();
+    try {
+      const created = await createVendorBusiness(currentUser as any, {
+        name: newBizName,
+        category: newBizCategory,
+        city: business?.city || 'Visakhapatnam',
+        area_locality: business?.area_locality || 'Madhurawada',
+        phone: phoneContact || currentUser?.phone || '',
+        whatsapp_number: whatsappContact || currentUser?.phone || '',
+        base_price: Number(newBizPrice) || 50000,
+      });
+      if (created) {
+        playActionSuccess();
+        setAvailableBusinesses((prev) => [created, ...prev]);
+        setAddBusinessModalVisible(false);
+        setNewBizName('');
+        Alert.alert('Capability Added', `${created.name} has been added to your business stack.`);
+      }
+    } catch (e) {
+      console.warn('Create business capability error:', e);
+    } finally {
+      setCreatingBusiness(false);
+    }
+  };
+
+  // Open Add Offering for specific business in the stack
+  const openAddOfferingForBusiness = (biz: Business) => {
+    playButtonClick();
+    setSelectedBusinessId(biz.id);
+    setSelectedServiceCategory(biz.category);
+    setOfferingCeremonyType(
+      biz.category === 'decoration'
+        ? 'mandapam'
+        : biz.category === 'catering'
+        ? 'veg'
+        : biz.category === 'photography'
+        ? '3day_wedding'
+        : 'sangeeth_dj'
+    );
+    setAddOfferingModalVisible(true);
   };
 
   // Direct Communication Handlers
@@ -1241,6 +1365,57 @@ export default function VendorDashboardScreen({
                           </View>
                         </View>
 
+                        {/* Custom Quotation Items Breakdown */}
+                        {inq.cart_items && inq.cart_items.length > 0 && (
+                          <View style={styles.quoteItemsBox}>
+                            <View style={styles.quoteItemsHeader}>
+                              <Sparkles size={12} color="#C5A059" />
+                              <Text style={styles.quoteItemsHeaderText}>
+                                REQUESTED OFFERINGS & UTILITIES ({inq.cart_items.length})
+                              </Text>
+                            </View>
+                            {inq.cart_items.map((cItem, cIdx) => (
+                              <View key={cIdx} style={styles.quoteItemRow}>
+                                <Text style={styles.quoteItemTitle} numberOfLines={1}>
+                                  • {cItem.quantity}x {cItem.title}
+                                </Text>
+                                <Text style={styles.quoteItemRate}>
+                                  ₹{(Number(cItem.unitPrice || 0) * (cItem.quantity || 1)).toLocaleString('en-IN')}
+                                </Text>
+                              </View>
+                            ))}
+                            {inq.customer_target_budget ? (
+                              <View style={styles.targetBudgetRow}>
+                                <Text style={styles.targetBudgetLabel}>Customer Proposed Budget:</Text>
+                                <Text style={styles.targetBudgetValue}>
+                                  ₹{inq.customer_target_budget.toLocaleString('en-IN')}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        )}
+
+                        {/* Existing Counter-Offer Status Banner */}
+                        {inq.vendor_counter_price ? (
+                          <View style={styles.counterOfferBadge}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={styles.counterOfferBadgeLabel}>YOUR COUNTER-OFFER SENT:</Text>
+                              <Text style={styles.counterOfferBadgeVal}>
+                                ₹{inq.vendor_counter_price.toLocaleString('en-IN')}
+                              </Text>
+                            </View>
+                            {inq.vendor_counter_notes ? (
+                              <Text style={styles.counterOfferNotesText}>"{inq.vendor_counter_notes}"</Text>
+                            ) : null}
+                            {inq.negotiation_status === 'negotiation_accepted' && (
+                              <View style={styles.negotiationAcceptedTag}>
+                                <Check size={12} color="#059669" />
+                                <Text style={styles.negotiationAcceptedTagText}>Customer Accepted Your Offer!</Text>
+                              </View>
+                            )}
+                          </View>
+                        ) : null}
+
                         {inq.notes ? (
                           <View style={styles.notesBox}>
                             <Text style={styles.notesText}>"{inq.notes}"</Text>
@@ -1257,7 +1432,16 @@ export default function VendorDashboardScreen({
                                 activeOpacity={0.8}
                               >
                                 <Check size={15} color="#FFFFFF" />
-                                <Text style={styles.approveBtnText}>Approve Date Hold</Text>
+                                <Text style={styles.approveBtnText}>Approve</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={styles.counterBtn}
+                                onPress={() => handleOpenCounterModal(inq)}
+                                activeOpacity={0.8}
+                              >
+                                <Sparkles size={13} color="#C5A059" />
+                                <Text style={styles.counterBtnText}>Negotiate Price</Text>
                               </TouchableOpacity>
 
                               <TouchableOpacity
@@ -1297,493 +1481,523 @@ export default function VendorDashboardScreen({
               </View>
             )}
 
-            {/* TAB 2: SERVICES & PRICING */}
+            {/* TAB 2: SERVICES & PRICING (MULTI-BUSINESS STACK) */}
             {activeTab === 'pricing' && (
               <View style={styles.tabSection}>
-                {/* 1. Capability Dropdown Selector */}
-                <View style={styles.serviceSelectorContainer}>
-                  <Text style={styles.serviceSelectorHeading}>MANAGE SERVICE CAPABILITY</Text>
+                {/* 1. Header with Add Business Action */}
+                <View style={styles.stackHeaderCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.stackHeaderTitle}>MY BUSINESSES & SERVICE STACK</Text>
+                    <Text style={styles.stackHeaderSub}>
+                      Manage associated businesses, equipment, utility rentals, meal plans & shoot packages
+                    </Text>
+                  </View>
                   <TouchableOpacity
-                    style={styles.serviceDropdownBtn}
+                    style={styles.addBizBtn}
                     onPress={() => {
                       playButtonClick();
-                      setServiceDropdownVisible(true);
+                      setAddBusinessModalVisible(true);
                     }}
                     activeOpacity={0.85}
                   >
-                    <View style={styles.serviceDropdownLeft}>
-                      <View style={styles.serviceDropdownIconWrap}>
-                        {selectedServiceCategory === 'venue' && <Building size={18} color="#0284C7" />}
-                        {selectedServiceCategory === 'decoration' && <Flower2 size={18} color="#C5A059" />}
-                        {selectedServiceCategory === 'catering' && <Utensils size={18} color="#059669" />}
-                        {selectedServiceCategory === 'photography' && <Camera size={18} color="#7C3AED" />}
-                        {selectedServiceCategory === 'dj_sound' && <Music size={18} color="#D97706" />}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.serviceDropdownTitle}>
-                          {SERVICE_CAPABILITIES.find((s) => s.id === selectedServiceCategory)?.name || 'Mandapam & Decor'}
-                        </Text>
-                        <Text style={styles.serviceDropdownSub}>
-                          {SERVICE_CAPABILITIES.find((s) => s.id === selectedServiceCategory)?.subtitle}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.serviceDropdownChevron}>
-                      <ChevronDown size={18} color="#0B0B0E" />
-                    </View>
+                    <Plus size={14} color="#0B0B0E" />
+                    <Text style={styles.addBizBtnText}>+ Add Business</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* 2. Top Header & Add Action */}
-                <View style={styles.sectionHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionTitle}>
-                      {selectedServiceCategory === 'venue'
-                        ? 'Hall Capacity & Base Tariff'
-                        : selectedServiceCategory === 'decoration'
-                        ? 'Mandapam Sets & Decor Ads'
-                        : selectedServiceCategory === 'catering'
-                        ? 'Catering Meal Plans & Feasts'
-                        : selectedServiceCategory === 'photography'
-                        ? '4K Cinema & Photography Plans'
-                        : 'Concert Sound & Stage Light Setups'}
+                {/* 2. Stack of Associated Businesses */}
+                {(availableBusinesses.length > 0 ? availableBusinesses : business ? [business] : []).map((bizItem, bIdx) => {
+                  const bId = bizItem.id;
+                  const bCat = bizItem.category;
+                  const currentSubFilter = businessSubFilters[bId] || 'all';
+
+                  const setSubFilterForBiz = (filterId) => {
+                    playButtonClick();
+                    setBusinessSubFilters((prev) => ({ ...prev, [bId]: filterId }));
+                  };
+
+                  return (
+                    <View key={bId || bIdx} style={styles.bizStackCard}>
+                      {/* Business Card Top Row */}
+                      <View style={styles.bizStackHeader}>
+                        <View style={styles.bizStackIconWrap}>
+                          {bCat === 'venue' && <Building size={20} color="#0284C7" />}
+                          {bCat === 'decoration' && <Flower2 size={20} color="#C5A059" />}
+                          {bCat === 'catering' && <Utensils size={20} color="#059669" />}
+                          {bCat === 'photography' && <Camera size={20} color="#7C3AED" />}
+                          {bCat === 'dj_sound' && <Music size={20} color="#D97706" />}
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.bizStackName}>{bizItem.name}</Text>
+                            <View style={styles.bizActivePill}>
+                              <Text style={styles.bizActivePillText}>Active Store</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.bizStackMeta}>
+                            {bizItem.area_locality || 'Madhurawada'}, {bizItem.city || 'Visakhapatnam'} •{' '}
+                            <Text style={{ fontWeight: '700', color: '#8A723D' }}>
+                              {bCat === 'venue'
+                                ? 'Function Hall / Kalyana Mandapam'
+                                : bCat === 'decoration'
+                                ? 'Mandapams, Decor & Utilities'
+                                : bCat === 'catering'
+                                ? 'Catering & Royal Feasts'
+                                : bCat === 'photography'
+                                ? '4K Shoot & Cinema Plans'
+                                : 'Concert Sound & DJ Setups'}
+                            </Text>
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.bizAddOfferingBtn}
+                          onPress={() => openAddOfferingForBusiness(bizItem)}
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={13} color="#0B0B0E" />
+                          <Text style={styles.bizAddOfferingBtnText}>+ Add Offering</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Dropdown / Sub-filters for this business */}
+                      {bCat === 'decoration' && (
+                        <View style={{ marginTop: 12 }}>
+                          <Text style={styles.itemCategoryFilterLabel}>FILTER DECOR & UTILITY ITEMS:</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.subfilterScrollContent}
+                          >
+                            {[
+                              { id: 'all', label: 'All Offerings' },
+                              { id: 'mandapam', label: '🏛️ Mandapam Sets' },
+                              { id: 'sangeeth', label: '🎉 Sangeeth Stages' },
+                              { id: 'wayworks_entrance', label: '✨ Wayworks & Entrance' },
+                              { id: 'reception_backdrop', label: 'Reception Backdrops' },
+                              { id: 'haldi_mehendi', label: '🌼 Haldi & Mehendi' },
+                              { id: 'rata_muhurtham', label: '🪔 Rata Muhurtham' },
+                              { id: 'kalagollu_sambaralu', label: 'Kalagollu Sambaralu' },
+                              { id: 'utilities', label: '🪑 Chairs, Tents & Coolers' },
+                              { id: 'home_decor', label: '🏡 Home Decor' },
+                              { id: 'other', label: '⚡ Other' },
+                            ].map((chip) => (
+                              <TouchableOpacity
+                                key={chip.id}
+                                style={[
+                                  styles.subfilterChip,
+                                  currentSubFilter === chip.id && styles.subfilterChipActive,
+                                ]}
+                                onPress={() => setSubFilterForBiz(chip.id)}
+                                activeOpacity={0.8}
+                              >
+                                <Text
+                                  style={[
+                                    styles.subfilterChipText,
+                                    currentSubFilter === chip.id && styles.subfilterChipTextActive,
+                                  ]}
+                                >
+                                  {chip.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+
+                          {/* Items List */}
+                          {(bizItem.decor_items || (bizItem.id === business?.id ? business?.decor_items : []) || [])
+                            .filter((item) => currentSubFilter === 'all' || item.element_type === currentSubFilter)
+                            .map((item) => (
+                              <View key={item.id} style={styles.pricingCard}>
+                                <View style={styles.pricingCardTop}>
+                                  <Flower2 size={20} color="#C5A059" />
+                                  <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                      <Text style={styles.vendorCategoryBadgeText}>
+                                        {item.element_type.toUpperCase().replace(/_/g, ' ')}
+                                      </Text>
+                                      <View style={styles.vendorMiniNegotiableTag}>
+                                        <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.pricingTitle}>{item.title}</Text>
+                                    <Text style={styles.pricingSub}>
+                                      {item.dimensions ? `Size: ${item.dimensions}` : ''}
+                                      {item.height ? ` • Height: ${item.height}` : ''}
+                                      {item.flower_type ? ` • ${item.flower_type}` : ''}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.pricePill}>
+                                    <Text style={styles.pricePillText}>
+                                      ₹{Number(item.base_price || 0).toLocaleString('en-IN')}
+                                    </Text>
+                                    <Text style={styles.pricePillUnit}>/ event</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+
+                          {(!bizItem.decor_items || bizItem.decor_items.length === 0) &&
+                            (!business?.decor_items || business.decor_items.length === 0) && (
+                              <View style={styles.emptyOfferingCard}>
+                                <Flower2 size={28} color="#C5A059" />
+                                <Text style={styles.emptyOfferingTitle}>No Items in this Category Yet</Text>
+                                <Text style={styles.emptyOfferingSub}>
+                                  Add Mandapams, Sangeeth stages, entrance tunnels, or utility rentals (chairs, tents, coolers).
+                                </Text>
+                                <TouchableOpacity
+                                  style={styles.emptyAddBtn}
+                                  onPress={() => openAddOfferingForBusiness(bizItem)}
+                                >
+                                  <Text style={styles.emptyAddBtnText}>+ Add First Item</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                        </View>
+                      )}
+
+                      {/* Catering Sub-filter & Offerings */}
+                      {bCat === 'catering' && (
+                        <View style={{ marginTop: 12 }}>
+                          <Text style={styles.itemCategoryFilterLabel}>FILTER CATERING MENUS & FEASTS:</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.subfilterScrollContent}
+                          >
+                            {[
+                              { id: 'all', label: 'All Feasts' },
+                              { id: 'veg', label: 'Pure Veg Feasts' },
+                              { id: 'non_veg', label: 'Non-Veg Feasts' },
+                              { id: 'mixed', label: 'Grand Buffets' },
+                              { id: 'breakfast', label: 'Breakfast & Tiffin' },
+                              { id: 'high_tea', label: 'High Tea & Snacks' },
+                              { id: 'live_stall', label: 'Live Counters' },
+                            ].map((chip) => (
+                              <TouchableOpacity
+                                key={chip.id}
+                                style={[
+                                  styles.subfilterChip,
+                                  currentSubFilter === chip.id && styles.subfilterChipActive,
+                                ]}
+                                onPress={() => setSubFilterForBiz(chip.id)}
+                                activeOpacity={0.8}
+                              >
+                                <Text
+                                  style={[
+                                    styles.subfilterChipText,
+                                    currentSubFilter === chip.id && styles.subfilterChipTextActive,
+                                  ]}
+                                >
+                                  {chip.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+
+                          {(bizItem.catering_packages || (bizItem.id === business?.id ? business?.catering_packages : []) || [])
+                            .filter(
+                              (pkg) =>
+                                currentSubFilter === 'all' ||
+                                (pkg.package_type || pkg.diet_type) === currentSubFilter
+                            )
+                            .map((pkg) => (
+                              <View key={pkg.id} style={styles.pricingCard}>
+                                <View style={styles.pricingCardTop}>
+                                  <Utensils size={20} color="#059669" />
+                                  <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                      <Text style={styles.vendorCategoryBadgeText}>
+                                        {(pkg.package_type || pkg.diet_type || 'VEG').toUpperCase()} FEAST
+                                      </Text>
+                                      <View style={styles.minGuestPill}>
+                                        <Text style={styles.minGuestPillText}>Min {pkg.min_guest_count || 100} plates</Text>
+                                      </View>
+                                      <View style={styles.vendorMiniNegotiableTag}>
+                                        <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.pricingTitle}>{pkg.package_name}</Text>
+                                    <Text style={styles.pricingSub} numberOfLines={2}>
+                                      Highlights: {(pkg.menu_highlights || []).join(' • ')}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.pricePill}>
+                                    <Text style={styles.pricePillText}>
+                                      ₹{Number(pkg.price_per_plate || 0).toLocaleString('en-IN')}
+                                    </Text>
+                                    <Text style={styles.pricePillUnit}>/ plate</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+
+                          {(!bizItem.catering_packages || bizItem.catering_packages.length === 0) &&
+                            (!business?.catering_packages || business.catering_packages.length === 0) && (
+                              <View style={styles.emptyOfferingCard}>
+                                <Utensils size={28} color="#059669" />
+                                <Text style={styles.emptyOfferingTitle}>No Catering Packages Published</Text>
+                                <Text style={styles.emptyOfferingSub}>
+                                  Publish Veg, Non-Veg, or Grand Buffet menus with minimum plates and dishes.
+                                </Text>
+                                <TouchableOpacity
+                                  style={styles.emptyAddBtn}
+                                  onPress={() => openAddOfferingForBusiness(bizItem)}
+                                >
+                                  <Text style={styles.emptyAddBtnText}>+ Add First Feast</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                        </View>
+                      )}
+
+                      {/* Photography Sub-filter & Offerings */}
+                      {bCat === 'photography' && (
+                        <View style={{ marginTop: 12 }}>
+                          <Text style={styles.itemCategoryFilterLabel}>FILTER SHOOT PACKAGES:</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.subfilterScrollContent}
+                          >
+                            {[
+                              { id: 'all', label: 'All Packages' },
+                              { id: '3day_wedding', label: '3-Day Wedding' },
+                              { id: 'candid_cinematic', label: 'Candid & Cinema' },
+                              { id: 'pre_wedding', label: 'Pre-Wedding' },
+                              { id: 'muhurtham_traditional', label: 'Muhurtham Traditional' },
+                              { id: 'drone_led', label: 'Drone & LED Wall' },
+                            ].map((chip) => (
+                              <TouchableOpacity
+                                key={chip.id}
+                                style={[
+                                  styles.subfilterChip,
+                                  currentSubFilter === chip.id && styles.subfilterChipActive,
+                                ]}
+                                onPress={() => setSubFilterForBiz(chip.id)}
+                                activeOpacity={0.8}
+                              >
+                                <Text
+                                  style={[
+                                    styles.subfilterChipText,
+                                    currentSubFilter === chip.id && styles.subfilterChipTextActive,
+                                  ]}
+                                >
+                                  {chip.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+
+                          {(bizItem.photography_packages || (bizItem.id === business?.id ? business?.photography_packages : []) || [])
+                            .filter((pkg) => currentSubFilter === 'all' || pkg.package_type === currentSubFilter)
+                            .map((pkg) => (
+                              <View key={pkg.id} style={styles.pricingCard}>
+                                <View style={styles.pricingCardTop}>
+                                  <Camera size={20} color="#7C3AED" />
+                                  <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                      <Text style={styles.vendorCategoryBadgeText}>
+                                        {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
+                                      </Text>
+                                      <View style={styles.vendorMiniNegotiableTag}>
+                                        <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                                    <Text style={styles.pricingSub}>
+                                      {pkg.duration ? `Duration: ${pkg.duration} • ` : ''}
+                                      {pkg.crew_count ? `Crew: ${pkg.crew_count} • ` : ''}
+                                      {pkg.deliverables.join(' • ')}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.pricePill}>
+                                    <Text style={styles.pricePillText}>
+                                      ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                                    </Text>
+                                    <Text style={styles.pricePillUnit}>/ package</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+
+                          {(!bizItem.photography_packages || bizItem.photography_packages.length === 0) &&
+                            (!business?.photography_packages || business.photography_packages.length === 0) && (
+                              <View style={styles.emptyOfferingCard}>
+                                <Camera size={28} color="#7C3AED" />
+                                <Text style={styles.emptyOfferingTitle}>No Photography Packages Published</Text>
+                                <Text style={styles.emptyOfferingSub}>
+                                  Publish 4K Cinematic shoot, candid photography, or pre-wedding drone packages.
+                                </Text>
+                                <TouchableOpacity
+                                  style={styles.emptyAddBtn}
+                                  onPress={() => openAddOfferingForBusiness(bizItem)}
+                                >
+                                  <Text style={styles.emptyAddBtnText}>+ Add First Shoot Plan</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                        </View>
+                      )}
+
+                      {/* DJ & Sound Sub-filter & Offerings */}
+                      {bCat === 'dj_sound' && (
+                        <View style={{ marginTop: 12 }}>
+                          <Text style={styles.itemCategoryFilterLabel}>FILTER SOUND & LIGHTING SETUPS:</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.subfilterScrollContent}
+                          >
+                            {[
+                              { id: 'all', label: 'All Setups' },
+                              { id: 'sangeeth_dj', label: 'Sangeeth DJ & Lights' },
+                              { id: 'concert_audio', label: 'Line Array Audio' },
+                              { id: 'traditional_melam', label: 'Traditional Melam' },
+                              { id: 'truss_pyro', label: 'Cold Pyro & Truss' },
+                            ].map((chip) => (
+                              <TouchableOpacity
+                                key={chip.id}
+                                style={[
+                                  styles.subfilterChip,
+                                  currentSubFilter === chip.id && styles.subfilterChipActive,
+                                ]}
+                                onPress={() => setSubFilterForBiz(chip.id)}
+                                activeOpacity={0.8}
+                              >
+                                <Text
+                                  style={[
+                                    styles.subfilterChipText,
+                                    currentSubFilter === chip.id && styles.subfilterChipTextActive,
+                                  ]}
+                                >
+                                  {chip.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+
+                          {(bizItem.dj_sound_packages || (bizItem.id === business?.id ? business?.dj_sound_packages : []) || [])
+                            .filter((pkg) => currentSubFilter === 'all' || pkg.package_type === currentSubFilter)
+                            .map((pkg) => (
+                              <View key={pkg.id} style={styles.pricingCard}>
+                                <View style={styles.pricingCardTop}>
+                                  <Music size={20} color="#D97706" />
+                                  <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                      <Text style={styles.vendorCategoryBadgeText}>
+                                        {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
+                                      </Text>
+                                      <View style={styles.vendorMiniNegotiableTag}>
+                                        <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                                    <Text style={styles.pricingSub}>
+                                      {pkg.power_output_watts ? `Output: ${pkg.power_output_watts} • ` : ''}
+                                      {pkg.equipment_highlights.join(' • ')}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.pricePill}>
+                                    <Text style={styles.pricePillText}>
+                                      ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                                    </Text>
+                                    <Text style={styles.pricePillUnit}>/ setup</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+
+                          {(!bizItem.dj_sound_packages || bizItem.dj_sound_packages.length === 0) &&
+                            (!business?.dj_sound_packages || business.dj_sound_packages.length === 0) && (
+                              <View style={styles.emptyOfferingCard}>
+                                <Music size={28} color="#D97706" />
+                                <Text style={styles.emptyOfferingTitle}>No Sound Setups Published</Text>
+                                <Text style={styles.emptyOfferingSub}>
+                                  Publish Line Array concert sound, DJ console setups, and cold spark pyrotechnics.
+                                </Text>
+                                <TouchableOpacity
+                                  style={styles.emptyAddBtn}
+                                  onPress={() => openAddOfferingForBusiness(bizItem)}
+                                >
+                                  <Text style={styles.emptyAddBtnText}>+ Add First Sound Setup</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                        </View>
+                      )}
+
+                      {/* Function Hall Technical Specs */}
+                      {bCat === 'venue' && (
+                        <View style={styles.venueSpecsSection}>
+                          <View style={styles.specsMatrixCard}>
+                            <View style={styles.specGridRow}>
+                              <View style={styles.specGridItem}>
+                                <Users size={18} color="#C5A059" />
+                                <Text style={styles.specGridVal}>{seatingCap} Guests</Text>
+                                <Text style={styles.specGridName}>Seating Capacity</Text>
+                              </View>
+                              <View style={styles.specGridDivider} />
+                              <View style={styles.specGridItem}>
+                                <Users size={18} color="#C5A059" />
+                                <Text style={styles.specGridVal}>{floatingCap} Guests</Text>
+                                <Text style={styles.specGridName}>Floating Capacity</Text>
+                              </View>
+                            </View>
+                            <View style={styles.specGridRowDivider} />
+                            <View style={styles.specGridRow}>
+                              <View style={styles.specGridItem}>
+                                <Building size={18} color="#C5A059" />
+                                <Text style={styles.specGridVal}>{roomsCount} Deluxe Rooms</Text>
+                                <Text style={styles.specGridName}>AC Guest Suites</Text>
+                              </View>
+                              <View style={styles.specGridDivider} />
+                              <View style={styles.specGridItem}>
+                                <Car size={18} color="#C5A059" />
+                                <Text style={styles.specGridVal}>{parkingCars} Cars</Text>
+                                <Text style={styles.specGridName}>Parking Bays</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={styles.pricingCard}>
+                            <View style={styles.pricingCardTop}>
+                              <Building size={20} color="#C5A059" />
+                              <View style={{ flex: 1, marginLeft: 12 }}>
+                                <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental Tariff</Text>
+                                <Text style={styles.pricingSub}>Includes {roomsCount} AC Deluxe Rooms & Generator</Text>
+                              </View>
+                              <View style={styles.pricePill}>
+                                <Text style={styles.pricePillText}>
+                                  ₹{Number(currentBasePrice).toLocaleString('en-IN')}
+                                </Text>
+                                <Text style={styles.pricePillUnit}>/ 24-hr day</Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+
+                {/* 3. Register Additional Business Capability Card */}
+                <TouchableOpacity
+                  style={styles.addCapabilityCard}
+                  onPress={() => {
+                    playButtonClick();
+                    setAddBusinessModalVisible(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.addCapabilityIconWrap}>
+                    <Plus size={22} color="#C5A059" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={styles.addCapabilityTitle}>+ Register Another Business Capability</Text>
+                    <Text style={styles.addCapabilitySub}>
+                      Add separate entities for In-House Catering, Floral Decor & Utilities, or Photography
                     </Text>
-                    <Text style={styles.sectionSub}>
-                      {selectedServiceCategory === 'venue'
-                        ? 'Function hall owners manage capacity, suites & rental tariffs'
-                        : 'Published offerings saved server-side in live database'}
-                    </Text>
                   </View>
-
-                  {selectedServiceCategory !== 'venue' && (
-                    <TouchableOpacity
-                      style={styles.addBtn}
-                      onPress={() => {
-                        playButtonClick();
-                        setOfferingCeremonyType(
-                          selectedServiceCategory === 'decoration'
-                            ? 'mandapam'
-                            : selectedServiceCategory === 'catering'
-                            ? 'veg'
-                            : selectedServiceCategory === 'photography'
-                            ? '3day_wedding'
-                            : 'sangeeth_dj'
-                        );
-                        setAddOfferingModalVisible(true);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Plus size={15} color="#FFFFFF" />
-                      <Text style={styles.addBtnText}>+ Add Offering</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* CASE A: FUNCTION HALL (No packages needed, just hall specs) */}
-                {selectedServiceCategory === 'venue' && (
-                  <View style={styles.venueSpecsSection}>
-                    <View style={styles.venueSpecsHeaderCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.venueSpecsHeaderTitle}>Hall Technical Specifications</Text>
-                        <Text style={styles.venueSpecsHeaderSub}>
-                          Seating capacity, floating space, guest rooms, parking & generator backup
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.editSpecsBtn}
-                        onPress={() => {
-                          playButtonClick();
-                          setProfileModalVisible(true);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Sliders size={14} color="#0B0B0E" />
-                        <Text style={styles.editSpecsBtnText}>Edit Hall Specs</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.specsMatrixCard}>
-                      <View style={styles.specGridRow}>
-                        <View style={styles.specGridItem}>
-                          <Users size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{seatingCap} Guests</Text>
-                          <Text style={styles.specGridName}>Seating Capacity</Text>
-                        </View>
-                        <View style={styles.specGridDivider} />
-                        <View style={styles.specGridItem}>
-                          <Users size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{floatingCap} Guests</Text>
-                          <Text style={styles.specGridName}>Floating Capacity</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.specGridRowDivider} />
-
-                      <View style={styles.specGridRow}>
-                        <View style={styles.specGridItem}>
-                          <Building size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{roomsCount} Deluxe Rooms</Text>
-                          <Text style={styles.specGridName}>AC Guest Suites</Text>
-                        </View>
-                        <View style={styles.specGridDivider} />
-                        <View style={styles.specGridItem}>
-                          <Car size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{parkingCars} Cars</Text>
-                          <Text style={styles.specGridName}>Parking Bays</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.specGridRowDivider} />
-
-                      <View style={styles.specGridRow}>
-                        <View style={styles.specGridItem}>
-                          <Zap size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{powerBackup} kVA</Text>
-                          <Text style={styles.specGridName}>Generator Backup</Text>
-                        </View>
-                        <View style={styles.specGridDivider} />
-                        <View style={styles.specGridItem}>
-                          <Utensils size={18} color="#C5A059" />
-                          <Text style={styles.specGridVal}>{outsideFood ? 'Allowed' : 'In-House Only'}</Text>
-                          <Text style={styles.specGridName}>Outside Catering</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* 24-Hour Rental Tariff Card */}
-                    <View style={styles.pricingCard}>
-                      <View style={styles.pricingCardTop}>
-                        <Building size={20} color="#C5A059" />
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                            <Text style={styles.vendorCategoryBadgeText}>CONVENTION HALL RENTAL</Text>
-                            <View style={styles.vendorMiniNegotiableTag}>
-                              <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental Tariff</Text>
-                          <Text style={styles.pricingSub}>Includes {roomsCount} AC Deluxe Rooms, Generator & Security</Text>
-                        </View>
-                        <View style={styles.pricePill}>
-                          <Text style={styles.pricePillText}>
-                            ₹{Number(currentBasePrice).toLocaleString('en-IN')}
-                          </Text>
-                          <Text style={styles.pricePillUnit}>/ 24-hr day</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* CASE B: DECORATION & MANDAPAMS */}
-                {selectedServiceCategory === 'decoration' && (
-                  <View style={{ marginBottom: 12 }}>
-                    {/* Sub-filter chips */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
-                      {[
-                        { id: 'all', label: 'All Sets' },
-                        { id: 'mandapam', label: 'Mandapam Sets' },
-                        { id: 'wayworks_entrance', label: 'Wayworks & Entrance' },
-                        { id: 'sangeeth', label: 'Sangeeth Stages' },
-                        { id: 'rata_muhurtham', label: 'Rata Muhurtham' },
-                        { id: 'kalagollu_sambaralu', label: 'Kalagollu Sambaralu' },
-                        { id: 'home_decor', label: 'Home Decor' },
-                      ].map((chip) => (
-                        <TouchableOpacity
-                          key={chip.id}
-                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
-                          onPress={() => setOfferingSubFilter(chip.id)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
-                            {chip.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    {(business?.decor_items || [])
-                      .filter((item) => offeringSubFilter === 'all' || item.element_type === offeringSubFilter)
-                      .map((item) => (
-                        <View key={item.id} style={styles.pricingCard}>
-                          <View style={styles.pricingCardTop}>
-                            <Flower2 size={20} color="#C5A059" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Text style={styles.vendorCategoryBadgeText}>
-                                  {item.element_type.toUpperCase().replace(/_/g, ' ')}
-                                </Text>
-                                <View style={styles.vendorMiniNegotiableTag}>
-                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.pricingTitle}>{item.title}</Text>
-                              <Text style={styles.pricingSub}>
-                                {item.dimensions ? `Size: ${item.dimensions}` : ''}
-                                {item.height ? ` • Height: ${item.height}` : ''}
-                                {item.flower_type ? ` • ${item.flower_type}` : ''}
-                              </Text>
-                            </View>
-                            <View style={styles.pricePill}>
-                              <Text style={styles.pricePillText}>
-                                ₹{Number(item.base_price || 0).toLocaleString('en-IN')}
-                              </Text>
-                              <Text style={styles.pricePillUnit}>/ event</Text>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-
-                    {(!business?.decor_items || business.decor_items.length === 0) && (
-                      <View style={styles.emptyOfferingCard}>
-                        <Flower2 size={32} color="#C5A059" />
-                        <Text style={styles.emptyOfferingTitle}>No Decor Sets Published Yet</Text>
-                        <Text style={styles.emptyOfferingSub}>
-                          Post Mandapam sets, Entrance Wayworks, Sangeeth stages, Kalagollu or Home Decor.
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.emptyAddBtn}
-                          onPress={() => {
-                            setOfferingCeremonyType('mandapam');
-                            setAddOfferingModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.emptyAddBtnText}>+ Add First Decor Set</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* CASE C: CATERING & ROYAL FEASTS */}
-                {selectedServiceCategory === 'catering' && (
-                  <View style={{ marginBottom: 12 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
-                      {[
-                        { id: 'all', label: 'All Feasts' },
-                        { id: 'veg', label: 'Pure Veg Feasts' },
-                        { id: 'non_veg', label: 'Non-Veg Feasts' },
-                        { id: 'mixed', label: 'Grand Buffets' },
-                      ].map((chip) => (
-                        <TouchableOpacity
-                          key={chip.id}
-                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
-                          onPress={() => setOfferingSubFilter(chip.id)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
-                            {chip.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    {(business?.catering_packages || [])
-                      .filter((pkg) => offeringSubFilter === 'all' || (pkg.package_type || pkg.diet_type) === offeringSubFilter)
-                      .map((pkg) => (
-                        <View key={pkg.id} style={styles.pricingCard}>
-                          <View style={styles.pricingCardTop}>
-                            <Utensils size={20} color="#059669" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Text style={styles.vendorCategoryBadgeText}>
-                                  {(pkg.package_type || pkg.diet_type || 'VEG').toUpperCase()} FEAST
-                                </Text>
-                                <View style={styles.minGuestPill}>
-                                  <Text style={styles.minGuestPillText}>Min {pkg.min_guest_count || 100} plates</Text>
-                                </View>
-                                <View style={styles.vendorMiniNegotiableTag}>
-                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.pricingTitle}>{pkg.package_name}</Text>
-                              <Text style={styles.pricingSub} numberOfLines={2}>
-                                {pkg.menu_highlights.join(' • ')}
-                              </Text>
-                            </View>
-                            <View style={styles.pricePill}>
-                              <Text style={styles.pricePillText}>
-                                ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')}
-                              </Text>
-                              <Text style={styles.pricePillUnit}>/ plate</Text>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-
-                    {(!business?.catering_packages || business.catering_packages.length === 0) && (
-                      <View style={styles.emptyOfferingCard}>
-                        <Utensils size={32} color="#059669" />
-                        <Text style={styles.emptyOfferingTitle}>No Catering Meal Plans Yet</Text>
-                        <Text style={styles.emptyOfferingSub}>
-                          Post Royal Andhra Muhurtham Bhojanam, Buffet spreads with items & minimum plates count.
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.emptyAddBtn}
-                          onPress={() => {
-                            setOfferingCeremonyType('veg');
-                            setAddOfferingModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.emptyAddBtnText}>+ Add First Meal Plan</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* CASE D: PHOTOGRAPHY & CINEMA */}
-                {selectedServiceCategory === 'photography' && (
-                  <View style={{ marginBottom: 12 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
-                      {[
-                        { id: 'all', label: 'All Plans' },
-                        { id: '3day_wedding', label: 'Wedding Cinema' },
-                        { id: 'muhurtham_traditional', label: 'Traditional Muhurtham' },
-                        { id: 'song_teaser', label: 'Song & Teaser Shoot' },
-                        { id: 'pre_wedding', label: 'Pre-Wedding' },
-                      ].map((chip) => (
-                        <TouchableOpacity
-                          key={chip.id}
-                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
-                          onPress={() => setOfferingSubFilter(chip.id)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
-                            {chip.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    {(business?.photography_packages || [])
-                      .filter((pkg) => offeringSubFilter === 'all' || pkg.package_type === offeringSubFilter)
-                      .map((pkg) => (
-                        <View key={pkg.id} style={styles.pricingCard}>
-                          <View style={styles.pricingCardTop}>
-                            <Camera size={20} color="#7C3AED" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Text style={styles.vendorCategoryBadgeText}>
-                                  {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
-                                </Text>
-                                <View style={styles.vendorMiniNegotiableTag}>
-                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.pricingTitle}>{pkg.title}</Text>
-                              <Text style={styles.pricingSub}>
-                                {pkg.duration ? `${pkg.duration} • ` : ''}{pkg.crew_count || ''}
-                              </Text>
-                              <Text style={[styles.pricingSub, { marginTop: 4 }]} numberOfLines={2}>
-                                Deliverables: {pkg.deliverables.join(' • ')}
-                              </Text>
-                            </View>
-                            <View style={styles.pricePill}>
-                              <Text style={styles.pricePillText}>
-                                ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
-                              </Text>
-                              <Text style={styles.pricePillUnit}>/ package</Text>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-
-                    {(!business?.photography_packages || business.photography_packages.length === 0) && (
-                      <View style={styles.emptyOfferingCard}>
-                        <Camera size={32} color="#7C3AED" />
-                        <Text style={styles.emptyOfferingTitle}>No Photography Plans Yet</Text>
-                        <Text style={styles.emptyOfferingSub}>
-                          Post 4K Cinematic Wedding Film, Traditional Muhurtham, or Pre-Wedding Teaser packages.
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.emptyAddBtn}
-                          onPress={() => {
-                            setOfferingCeremonyType('3day_wedding');
-                            setAddOfferingModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.emptyAddBtnText}>+ Add First Photography Plan</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* CASE E: DJ, SOUND & STAGE LIGHTING */}
-                {selectedServiceCategory === 'dj_sound' && (
-                  <View style={{ marginBottom: 12 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
-                      {[
-                        { id: 'all', label: 'All Setups' },
-                        { id: 'sangeeth_dj', label: 'Sangeeth DJ Concert' },
-                        { id: 'custom', label: 'Reception Live Sound' },
-                        { id: 'truss_pyro', label: 'Truss, Lights & Pyro' },
-                      ].map((chip) => (
-                        <TouchableOpacity
-                          key={chip.id}
-                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
-                          onPress={() => setOfferingSubFilter(chip.id)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
-                            {chip.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    {(business?.dj_sound_packages || [])
-                      .filter((pkg) => offeringSubFilter === 'all' || pkg.package_type === offeringSubFilter)
-                      .map((pkg) => (
-                        <View key={pkg.id} style={styles.pricingCard}>
-                          <View style={styles.pricingCardTop}>
-                            <Music size={20} color="#D97706" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Text style={styles.vendorCategoryBadgeText}>
-                                  {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
-                                </Text>
-                                <View style={styles.vendorMiniNegotiableTag}>
-                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.pricingTitle}>{pkg.title}</Text>
-                              <Text style={styles.pricingSub}>
-                                {pkg.power_output_watts ? `Output: ${pkg.power_output_watts} • ` : ''}
-                                {pkg.equipment_highlights.join(' • ')}
-                              </Text>
-                            </View>
-                            <View style={styles.pricePill}>
-                              <Text style={styles.pricePillText}>
-                                ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
-                              </Text>
-                              <Text style={styles.pricePillUnit}>/ setup</Text>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-
-                    {(!business?.dj_sound_packages || business.dj_sound_packages.length === 0) && (
-                      <View style={styles.emptyOfferingCard}>
-                        <Music size={32} color="#D97706" />
-                        <Text style={styles.emptyOfferingTitle}>No DJ Sound Setups Yet</Text>
-                        <Text style={styles.emptyOfferingSub}>
-                          Post Concert Audio (Watts RMS), Beam 230 Sharpie Lighting, Trussing & Cold Pyro packages.
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.emptyAddBtn}
-                          onPress={() => {
-                            setOfferingCeremonyType('sangeeth_dj');
-                            setAddOfferingModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.emptyAddBtnText}>+ Add First Sound Setup</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
+                </TouchableOpacity>
 
                 {/* Price Request History */}
                 <View style={styles.historyContainer}>
@@ -1795,26 +2009,29 @@ export default function VendorDashboardScreen({
                       <View key={req.id} style={styles.historyRow}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.historyItemName}>{req.item_name}</Text>
-                          <Text style={styles.historyProposed}>
-                            ₹{req.current_price.toLocaleString('en-IN')} → ₹{req.proposed_base_price.toLocaleString('en-IN')}
+                          <Text style={styles.historyTime}>
+                            Submitted {new Date(req.submitted_at).toLocaleDateString('en-IN')}
                           </Text>
                         </View>
-                        <View
-                          style={[
-                            styles.historyStatusPill,
-                            req.status === 'approved' && styles.historyStatusApproved,
-                            req.status === 'rejected' && styles.historyStatusRejected,
-                          ]}
-                        >
-                          <Text
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={styles.historyPrice}>
+                            ₹{req.proposed_base_price.toLocaleString('en-IN')}
+                          </Text>
+                          <View
                             style={[
-                              styles.historyStatusText,
-                              req.status === 'approved' && styles.historyStatusTextApproved,
-                              req.status === 'rejected' && styles.historyStatusTextRejected,
+                              styles.historyStatusPill,
+                              req.status === 'approved' && styles.historyStatusApproved,
                             ]}
                           >
-                            {req.status === 'pending_approval' ? 'Under Review' : req.status.toUpperCase()}
-                          </Text>
+                            <Text
+                              style={[
+                                styles.historyStatusText,
+                                req.status === 'approved' && styles.historyStatusTextApproved,
+                              ]}
+                            >
+                              {req.status.toUpperCase().replace('_', ' ')}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     ))
@@ -2329,6 +2546,8 @@ export default function VendorDashboardScreen({
                       { id: 'rata_muhurtham', label: 'Rata Muhurtham' },
                       { id: 'kalagollu_sambaralu', label: 'Kalagollu Sambaralu' },
                       { id: 'home_decor', label: 'Home Decor' },
+                      { id: 'utilities', label: '🪑 Chairs, Tents & Coolers' },
+                      { id: 'other', label: '⚡ Utilities & FX' },
                     ].map((opt) => (
                       <TouchableOpacity
                         key={opt.id}
@@ -2659,6 +2878,155 @@ export default function VendorDashboardScreen({
         business={business}
         onClose={() => setSelectedReel(null)}
       />
+    
+      {/* MODAL: COUNTER-OFFER PRICE NEGOTIATION */}
+      <Modal visible={counterModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalDialog, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Negotiate Price / Counter-Offer</Text>
+                <Text style={styles.modalSubTitle}>
+                  Send revised package price directly to {selectedInquiryForCounter?.customer_name}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setCounterModalVisible(false)}>
+                <X size={20} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.negotiationOverviewBox}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={styles.negotiationOverviewLabel}>Customer Reference:</Text>
+                  <Text style={styles.negotiationOverviewVal}>{selectedInquiryForCounter?.customer_name}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={styles.negotiationOverviewLabel}>Event Muhurtham Date:</Text>
+                  <Text style={styles.negotiationOverviewVal}>{selectedInquiryForCounter?.event_date}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={styles.negotiationOverviewLabel}>Estimated Total Amount:</Text>
+                  <Text style={styles.negotiationOverviewValGold}>
+                    ₹{(selectedInquiryForCounter?.final_customer_amount || selectedInquiryForCounter?.total_estimated_amount || 0).toLocaleString('en-IN')}
+                  </Text>
+                </View>
+                {selectedInquiryForCounter?.customer_target_budget ? (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+                    <Text style={[styles.negotiationOverviewLabel, { color: '#8A723D' }]}>Customer's Proposed Budget:</Text>
+                    <Text style={{ fontWeight: '800', color: '#8A723D' }}>
+                      ₹{selectedInquiryForCounter.customer_target_budget.toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <Text style={styles.inputLabel}>YOUR REVISED QUOTED PRICE (₹) *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={counterPriceInput}
+                onChangeText={setCounterPriceInput}
+                keyboardType="numeric"
+                placeholder="e.g. 95000"
+                placeholderTextColor="#8E8B99"
+              />
+
+              <Text style={styles.inputLabel}>MESSAGE / INCLUSIONS FOR CUSTOMER</Text>
+              <TextInput
+                style={[styles.textInput, { height: 75, textAlignVertical: 'top' }]}
+                value={counterNotesInput}
+                onChangeText={setCounterNotesInput}
+                multiline
+                placeholder="e.g. We can do ₹95,000 package including complimentary 4 mist coolers and extra entrance arch."
+                placeholderTextColor="#8E8B99"
+              />
+
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleSendCounterOffer}
+                disabled={submittingCounter}
+                activeOpacity={0.85}
+              >
+                {submittingCounter ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.submitModalBtnText}>Send Counter-Offer to Customer</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: ADD BUSINESS CAPABILITY */}
+      <Modal visible={addBusinessModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalDialog, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Add Business Capability</Text>
+                <Text style={styles.modalSubTitle}>
+                  Register a separate entity to manage and publish unique offerings
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setAddBusinessModalVisible(false)}>
+                <X size={20} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>SERVICE CATEGORY *</Text>
+              <View style={styles.chipSelectorWrap}>
+                {SERVICE_CAPABILITIES.map((cap) => (
+                  <TouchableOpacity
+                    key={cap.id}
+                    style={[styles.selectorChip, newBizCategory === cap.id && styles.selectorChipActive]}
+                    onPress={() => setNewBizCategory(cap.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.selectorChipText, newBizCategory === cap.id && styles.selectorChipTextActive]}>
+                      {cap.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>BRAND / BUSINESS NAME *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newBizName}
+                onChangeText={setNewBizName}
+                placeholder="e.g. Swarna Royal Catering & Feasts"
+                placeholderTextColor="#8E8B99"
+              />
+
+              <Text style={styles.inputLabel}>STARTING PRICE / TARIFF (₹) *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newBizPrice}
+                onChangeText={setNewBizPrice}
+                keyboardType="numeric"
+                placeholder="e.g. 450"
+                placeholderTextColor="#8E8B99"
+              />
+
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleCreateBusinessCapability}
+                disabled={creatingBusiness}
+                activeOpacity={0.85}
+              >
+                {creatingBusiness ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.submitModalBtnText}>Add Business to Stack</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -4263,4 +4631,288 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     textAlign: 'center',
   },
+
+  stackHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0B0B0E',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.3)',
+  },
+  stackHeaderTitle: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 12,
+    color: '#D4AF37',
+    letterSpacing: 0.8,
+    marginBottom: 3,
+  },
+  stackHeaderSub: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#9CA3AF',
+    lineHeight: 16,
+  },
+  addBizBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#C5A059',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginLeft: 10,
+  },
+  addBizBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#0B0B0E',
+  },
+  bizStackCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  bizStackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  bizStackIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bizStackName: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 15,
+    color: '#0B0B0E',
+  },
+  bizActivePill: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  bizActivePillText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 9.5,
+    color: '#059669',
+  },
+  bizStackMeta: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  bizAddOfferingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  bizAddOfferingBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#0B0B0E',
+  },
+  itemCategoryFilterLabel: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 10,
+    color: '#6B7280',
+    letterSpacing: 0.7,
+    marginBottom: 8,
+  },
+  addCapabilityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDF9',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E8DEC8',
+    borderStyle: 'dashed',
+    padding: 16,
+    marginBottom: 16,
+  },
+  addCapabilityIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF9EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCapabilityTitle: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 14,
+    color: '#8A723D',
+  },
+  addCapabilitySub: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  quoteItemsBox: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  quoteItemsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  quoteItemsHeaderText: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 9.5,
+    color: '#8A723D',
+    letterSpacing: 0.6,
+  },
+  quoteItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  quoteItemTitle: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#374151',
+    flex: 1,
+    marginRight: 8,
+  },
+  quoteItemRate: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#0B0B0E',
+  },
+  targetBudgetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  targetBudgetLabel: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11.5,
+    color: '#8A723D',
+  },
+  targetBudgetValue: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 13,
+    color: '#8A723D',
+  },
+  counterOfferBadge: {
+    backgroundColor: '#FFFDF9',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  counterOfferBadgeLabel: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 9.5,
+    color: '#8A723D',
+    letterSpacing: 0.7,
+  },
+  counterOfferBadgeVal: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 16,
+    color: '#0B0B0E',
+  },
+  counterOfferNotesText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  negotiationAcceptedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  negotiationAcceptedTagText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#059669',
+  },
+  counterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0B0B0E',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#C5A059',
+  },
+  counterBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#D4AF37',
+  },
+  negotiationOverviewBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    marginBottom: 14,
+  },
+  negotiationOverviewLabel: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  negotiationOverviewVal: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 12,
+    color: '#0B0B0E',
+  },
+  negotiationOverviewValGold: {
+    fontFamily: THEME.fonts.extraBold,
+    fontSize: 14,
+    color: '#8A723D',
+  },
+
 });

@@ -36,10 +36,15 @@ import {
   Tag,
   Ruler,
   Check,
+  ShoppingBag,
+  Plus,
 } from 'lucide-react-native';
 import ReelModal from '../components/ReelModal';
 import BookingModal from '../components/BookingModal';
 import CateringCalculator from '../components/CateringCalculator';
+import QuotationFloatingBar from '../components/QuotationFloatingBar';
+import { useQuotationCart } from '../context/QuotationCartContext';
+import { playSuccessSound } from '../lib/soundManager';
 import { getBusinessById } from '../lib/supabaseClient';
 import { Business, MediaReel } from '../types';
 import { THEME } from '../theme/colors';
@@ -57,6 +62,7 @@ export default function VendorDetailScreen({
   initialGuests = 300,
   onBack,
 }: VendorDetailScreenProps) {
+  const { addItem, openCart } = useQuotationCart();
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'specs' | 'decor' | 'catering' | 'photography' | 'dj_sound' | 'gallery'>('specs');
@@ -403,6 +409,8 @@ export default function VendorDetailScreen({
                   { key: 'rata_muhurtham', label: '🪔 Rata Muhurtham' },
                   { key: 'kalagollu_sambaralu', label: '🌼 Kalagollu Sambaralu' },
                   { key: 'home_decor', label: '🏡 Home Decor' },
+                  { key: 'utilities', label: '🪑 Chairs, Tents & Coolers' },
+                  { key: 'other', label: '⚡ Utilities & FX' },
                 ].map((c) => {
                   const isSel = decorCeremonyFilter === c.key;
                   return (
@@ -480,17 +488,43 @@ export default function VendorDetailScreen({
                             <Text style={styles.decorPrice}>₹{Number(item.base_price || 0).toLocaleString('en-IN')}</Text>
                           </View>
 
-                          <TouchableOpacity
-                            style={styles.decorWaBtn}
-                            onPress={() => {
-                              const cleanNum = business.whatsapp_number.replace(/\D/g, '');
-                              const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(item.title)}%20setup%20(${encodeURIComponent(item.dimensions || '')}%2C%20${encodeURIComponent(item.height || '')})%20for%20my%20auspicious%20date%20${initialDate}.`;
-                              Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
-                            }}
-                          >
-                            <MessageCircle size={14} color="#FFFFFF" />
-                            <Text style={styles.decorWaBtnText}>Inquire for Setup</Text>
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TouchableOpacity
+                              style={styles.addQuoteBtn}
+                              onPress={() => {
+                                playSuccessSound();
+                                addItem({
+                                  id: item.id || `decor-${Date.now()}`,
+                                  businessId: business.id,
+                                  businessName: business.name,
+                                  businessCategory: business.category,
+                                  categoryType: item.element_type,
+                                  title: item.title,
+                                  specsSummary: `${item.dimensions || ''} ${item.height || ''}`.trim(),
+                                  unitPrice: Number(item.base_price || 0),
+                                  quantity: 1,
+                                  unitLabel: item.element_type === 'utilities' ? 'unit' : 'event',
+                                  sampleImage: item.sample_images?.[0] || business.cover_image_url,
+                                });
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <ShoppingBag size={13} color="#0B0B0E" />
+                              <Text style={styles.addQuoteBtnText}>+ Add to Quote</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={styles.decorWaBtn}
+                              onPress={() => {
+                                const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                                const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(item.title)}%20setup%20(${encodeURIComponent(item.dimensions || '')}%2C%20${encodeURIComponent(item.height || '')})%20for%20my%20auspicious%20date%20${initialDate}.`;
+                                Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                              }}
+                            >
+                              <MessageCircle size={14} color="#FFFFFF" />
+                              <Text style={styles.decorWaBtnText}>WhatsApp</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
                     </View>
@@ -623,17 +657,43 @@ export default function VendorDetailScreen({
                       <Text style={styles.decorPrice}>₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}</Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.decorWaBtn}
-                      onPress={() => {
-                        const cleanNum = business.whatsapp_number.replace(/\D/g, '');
-                        const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(pkg.title)}%20package%20for%20my%20wedding%20on%20${initialDate}.`;
-                        Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
-                      }}
-                    >
-                      <MessageCircle size={14} color="#FFFFFF" />
-                      <Text style={styles.decorWaBtnText}>Inquire Package</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        style={styles.addQuoteBtn}
+                        onPress={() => {
+                          playSuccessSound();
+                          addItem({
+                            id: pkg.id || `photo-${Date.now()}`,
+                            businessId: business.id,
+                            businessName: business.name,
+                            businessCategory: 'photography',
+                            categoryType: pkg.package_type,
+                            title: pkg.title,
+                            specsSummary: `${pkg.duration || 'Full Day'} • ${pkg.crew_count || '3 crew'}`,
+                            unitPrice: Number(pkg.base_price || 0),
+                            quantity: 1,
+                            unitLabel: 'package',
+                            sampleImage: pkg.sample_images?.[0] || business.cover_image_url,
+                          });
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <ShoppingBag size={13} color="#0B0B0E" />
+                        <Text style={styles.addQuoteBtnText}>+ Add to Quote</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.decorWaBtn}
+                        onPress={() => {
+                          const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                          const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20the%20${encodeURIComponent(pkg.title)}%20package%20for%20my%20wedding%20on%20${initialDate}.`;
+                          Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                        }}
+                      >
+                        <MessageCircle size={14} color="#FFFFFF" />
+                        <Text style={styles.decorWaBtnText}>WhatsApp</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -696,17 +756,43 @@ export default function VendorDetailScreen({
                       <Text style={styles.decorPrice}>₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}</Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.decorWaBtn}
-                      onPress={() => {
-                        const cleanNum = business.whatsapp_number.replace(/\D/g, '');
-                        const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20${encodeURIComponent(pkg.title)}%20(${encodeURIComponent(pkg.power_output_watts || '')})%20for%20my%20event%20on%20${initialDate}.`;
-                        Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
-                      }}
-                    >
-                      <MessageCircle size={14} color="#FFFFFF" />
-                      <Text style={styles.decorWaBtnText}>Inquire Setup</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        style={styles.addQuoteBtn}
+                        onPress={() => {
+                          playSuccessSound();
+                          addItem({
+                            id: pkg.id || `dj-${Date.now()}`,
+                            businessId: business.id,
+                            businessName: business.name,
+                            businessCategory: 'dj_sound',
+                            categoryType: pkg.package_type,
+                            title: pkg.title,
+                            specsSummary: `${pkg.power_output_watts || '10,000 Watts'}`,
+                            unitPrice: Number(pkg.base_price || 0),
+                            quantity: 1,
+                            unitLabel: 'setup',
+                            sampleImage: pkg.sample_images?.[0] || business.cover_image_url,
+                          });
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <ShoppingBag size={13} color="#0B0B0E" />
+                        <Text style={styles.addQuoteBtnText}>+ Add to Quote</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.decorWaBtn}
+                        onPress={() => {
+                          const cleanNum = business.whatsapp_number.replace(/\D/g, '');
+                          const url = `whatsapp://send?phone=${cleanNum}&text=Hi%2C%20inquiring%20about%20${encodeURIComponent(pkg.title)}%20(${encodeURIComponent(pkg.power_output_watts || '')})%20for%20my%20event%20on%20${initialDate}.`;
+                          Linking.openURL(url).catch(() => Linking.openURL(`https://wa.me/${cleanNum}`));
+                        }}
+                      >
+                        <MessageCircle size={14} color="#FFFFFF" />
+                        <Text style={styles.decorWaBtnText}>WhatsApp</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -811,6 +897,9 @@ export default function VendorDetailScreen({
         estimatedTotal={estimatedPrice || vSpecs?.base_rental_price}
         onClose={() => setIsBookingModalVisible(false)}
       />
+
+      {/* Floating Quotation Bar */}
+      <QuotationFloatingBar onPress={openCart} />
     </View>
   );
 }
@@ -937,6 +1026,20 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     color: '#94A3B8',
     letterSpacing: 0.5,
+  },
+  addQuoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#C5A059',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  addQuoteBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11,
+    color: '#0B0B0E',
   },
 
   screen: {

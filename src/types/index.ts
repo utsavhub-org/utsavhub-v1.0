@@ -75,7 +75,9 @@ export type DecorElementType =
   | 'home_decor'
   | 'reception_backdrop'
   | 'haldi_mehendi'
-  | 'lighting_fx';
+  | 'lighting_fx'
+  | 'utilities'
+  | 'other';
 
 export interface DecorItem {
   id: string;
@@ -220,6 +222,20 @@ export interface PriceUpdateRequest {
   notes?: string;
 }
 
+export interface CartQuotationItem {
+  id: string;
+  businessId: string;
+  businessName: string;
+  businessCategory: BusinessCategory;
+  categoryType: string; // 'mandapam' | 'utilities' | 'catering' | 'photography' | 'sound' | 'other'
+  title: string;
+  specsSummary?: string;
+  unitPrice: number;
+  quantity: number;
+  unitLabel: string; // 'event' | 'plate' | 'unit' | 'day'
+  sampleImage?: string;
+}
+
 export interface BookingInquiry {
   id?: string;
   business_id: string;
@@ -234,10 +250,23 @@ export interface BookingInquiry {
   vendor_base_amount?: number;
   admin_commission_percentage?: number;
   final_customer_amount?: number;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'confirmed' | 'declined' | 'negotiating' | 'counter_offered';
   notes?: string;
   created_at?: string;
+  cart_items?: CartQuotationItem[];
+  customer_target_budget?: number;
+  vendor_counter_price?: number;
+  vendor_counter_notes?: string;
+  negotiation_status?: 'standard' | 'quotation_requested' | 'counter_offered' | 'negotiation_accepted' | 'declined';
+  negotiation_history?: Array<{
+    sender: 'customer' | 'vendor';
+    amount: number;
+    notes?: string;
+    timestamp: string;
+  }>;
 }
+
+export type QuotationInquiry = BookingInquiry;
 
 export interface Review {
   id: string;

@@ -494,20 +494,30 @@ export async function createBookingInquiry(
 ): Promise<{ success: boolean; id: string }> {
   if (supabase) {
     try {
+      const insertPayload: any = {
+        business_id: inquiry.business_id,
+        customer_name: inquiry.customer_name,
+        customer_phone: inquiry.customer_phone,
+        event_date: inquiry.event_date,
+        guest_count: inquiry.guest_count,
+        vendor_base_amount: inquiry.vendor_base_amount || inquiry.total_estimated_amount,
+        admin_commission_percentage: inquiry.admin_commission_percentage || 10,
+        final_customer_amount: inquiry.final_customer_amount || inquiry.total_estimated_amount,
+        status: 'pending',
+        notes: inquiry.notes || '',
+      };
+
+      if (inquiry.cart_items && inquiry.cart_items.length > 0) {
+        insertPayload.cart_items = inquiry.cart_items;
+        insertPayload.negotiation_status = inquiry.negotiation_status || 'quotation_requested';
+      }
+      if (inquiry.customer_target_budget) {
+        insertPayload.customer_target_budget = inquiry.customer_target_budget;
+      }
+
       const { data, error } = await supabase
         .from('booking_inquiries')
-        .insert({
-          business_id: inquiry.business_id,
-          customer_name: inquiry.customer_name,
-          customer_phone: inquiry.customer_phone,
-          event_date: inquiry.event_date,
-          guest_count: inquiry.guest_count,
-          vendor_base_amount: inquiry.vendor_base_amount || inquiry.total_estimated_amount,
-          admin_commission_percentage: inquiry.admin_commission_percentage || 10,
-          final_customer_amount: inquiry.final_customer_amount || inquiry.total_estimated_amount,
-          status: 'pending',
-          notes: inquiry.notes || '',
-        })
+        .insert(insertPayload)
         .select('id')
         .maybeSingle();
 
@@ -519,18 +529,18 @@ export async function createBookingInquiry(
     }
   }
 
-  const mockId = 'INQ-' + Math.floor(100000 + Math.random() * 900000);
-  localInquiries.push({
-    ...inquiry,
-    id: mockId,
-    status: 'pending',
-    created_at: new Date().toISOString(),
-  });
-  return { success: true, id: mockId };
-}
+    const mockId = 'INQ-' + Math.floor(100000 + Math.random() * 900000);
+    localInquiries.push({
+      ...inquiry,
+      id: mockId,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    });
+    return { success: true, id: mockId };
+  }
 
 // ---------------------------------------------------------------------------
-// VENDOR PORTAL: INQUIRY MANAGEMENT (REAL-TIME SUPABASE)
+// VENDOR PORTAL: INQUIRY MANAGEMENT & NEGOTIATION (REAL-TIME SUPABASE)
 // ---------------------------------------------------------------------------
 
 export async function getVendorInquiries(businessId: string): Promise<BookingInquiry[]> {
@@ -556,6 +566,11 @@ export async function getVendorInquiries(businessId: string): Promise<BookingInq
           final_customer_amount: Number(d.final_customer_amount || 0),
           status: d.status || 'pending',
           notes: d.notes || '',
+          cart_items: d.cart_items || [],
+          customer_target_budget: d.customer_target_budget ? Number(d.customer_target_budget) : undefined,
+          vendor_counter_price: d.vendor_counter_price ? Number(d.vendor_counter_price) : undefined,
+          vendor_counter_notes: d.vendor_counter_notes || '',
+          negotiation_status: d.negotiation_status || 'standard',
           created_at: d.created_at,
         }));
       }
@@ -568,18 +583,22 @@ export async function getVendorInquiries(businessId: string): Promise<BookingInq
 
 export async function updateInquiryStatus(
   inquiryId: string,
-  newStatus: 'pending' | 'approved' | 'rejected' | 'completed'
+  newStatus: 'pending' | 'approved' | 'rejected' | 'completed' | 'confirmed' | 'declined'
 ): Promise<boolean> {
+  // Map frontend statuses to database check constraint values
+  const dbStatus =
+    newStatus === 'confirmed' ? 'approved' : newStatus === 'declined' ? 'rejected' : newStatus;
+
   if (supabase) {
     try {
       const { error } = await supabase
         .from('booking_inquiries')
-        .update({ status: newStatus })
+        .update({ status: dbStatus })
         .eq('id', inquiryId);
 
       if (!error) {
         const target = localInquiries.find((inq) => inq.id === inquiryId);
-        if (target) target.status = newStatus;
+        if (target) target.status = newStatus as any;
         return true;
       }
     } catch (e) {
@@ -588,10 +607,66 @@ export async function updateInquiryStatus(
   }
   const target = localInquiries.find((inq) => inq.id === inquiryId);
   if (target) {
-    target.status = newStatus;
+    target.status = newStatus as any;
     return true;
   }
   return false;
+}
+
+export async function sendQuotationCounterOffer(
+  inquiryId: string,
+  counterPrice: number,
+  notes: string
+): Promise<boolean> {
+  const target = localInquiries.find((inq) => inq.id === inquiryId);
+  if (target) {
+    target.vendor_counter_price = counterPrice;
+    target.vendor_counter_notes = notes;
+    target.negotiation_status = 'counter_offered';
+    target.status = 'approved';
+  }
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('booking_inquiries')
+        .update({
+          vendor_counter_price: counterPrice,
+          vendor_counter_notes: notes,
+          negotiation_status: 'counter_offered',
+          status: 'approved',
+        })
+        .eq('id', inquiryId);
+      return true;
+    } catch (e) {
+      console.warn('Supabase counter-offer notice:', e);
+    }
+  }
+  return true;
+}
+
+export async function acceptCustomerQuotationOffer(inquiryId: string): Promise<boolean> {
+  const target = localInquiries.find((inq) => inq.id === inquiryId);
+  if (target) {
+    target.negotiation_status = 'negotiation_accepted';
+    target.status = 'approved';
+  }
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('booking_inquiries')
+        .update({
+          negotiation_status: 'negotiation_accepted',
+          status: 'approved',
+        })
+        .eq('id', inquiryId);
+      return true;
+    } catch (e) {
+      console.warn('Supabase accept quote notice:', e);
+    }
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -651,6 +726,11 @@ export async function getCustomerBookings(customerPhoneOrEmail: string): Promise
                 ? 'Date Unavailable'
                 : 'Inquiry Under Review',
             notes: d.notes,
+            cart_items: d.cart_items || [],
+            customer_target_budget: d.customer_target_budget ? Number(d.customer_target_budget) : undefined,
+            vendor_counter_price: d.vendor_counter_price ? Number(d.vendor_counter_price) : undefined,
+            vendor_counter_notes: d.vendor_counter_notes || '',
+            negotiation_status: d.negotiation_status || 'standard',
           };
         });
       }
@@ -659,7 +739,33 @@ export async function getCustomerBookings(customerPhoneOrEmail: string): Promise
     }
   }
 
-  return [];
+  // Include local session inquiries matching phone
+  const cleanPhone = customerPhoneOrEmail.replace(/\D/g, '').slice(-10);
+  const matchingLocal = localInquiries.filter(
+    (inq) => inq.customer_phone.replace(/\D/g, '').includes(cleanPhone)
+  );
+
+  return matchingLocal.map((inq) => ({
+    id: inq.id,
+    vendorId: inq.business_id,
+    name: 'Grand Swarna Palace Convention Hall',
+    locality: 'Siripuram, Visakhapatnam',
+    image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800',
+    date: inq.event_date,
+    muhurthamLabel: 'Auspicious Muhurtham Date',
+    guests: inq.guest_count,
+    amount: `₹${(inq.final_customer_amount || inq.total_estimated_amount).toLocaleString('en-IN')}`,
+    status: inq.status,
+    phone: inq.customer_phone,
+    whatsapp: '919848012345',
+    statusLabel: inq.status === 'approved' ? 'Date Hold Confirmed' : inq.status === 'rejected' ? 'Declined' : 'Inquiry Under Review',
+    notes: inq.notes,
+    cart_items: inq.cart_items || [],
+    customer_target_budget: inq.customer_target_budget,
+    vendor_counter_price: inq.vendor_counter_price,
+    vendor_counter_notes: inq.vendor_counter_notes,
+    negotiation_status: inq.negotiation_status || 'standard',
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -1911,7 +2017,23 @@ export async function addVendorOffering(
           sample_images: [photoUrl],
           is_customizable: true,
         });
-        if (error) console.warn('Supabase insert decor_items error:', error.message);
+
+        if (error) {
+          console.warn('Supabase insert decor_items error:', error.message);
+          // If custom element type check failed due to remote DB constraint, retry as mandapam with ceremony tag
+          await supabase.from('decor_items').insert({
+            business_id: businessId,
+            element_type: 'mandapam',
+            title: `[${(offering.ceremony_type || 'custom').toUpperCase()}] ${offering.title}`,
+            dimensions: offering.dimensions || '25x20 ft',
+            height: offering.height || '14 ft',
+            flower_type: offering.flower_type || 'Standard Event Utility',
+            base_price: offering.price,
+            is_negotiable: true,
+            sample_images: [photoUrl],
+            is_customizable: true,
+          });
+        }
       } else if (category === 'catering') {
         const { error } = await supabase.from('catering_packages').insert({
           business_id: businessId,
@@ -1957,18 +2079,37 @@ export async function addVendorOffering(
       }
 
       // Also track in price_update_requests for UtsavHub verification & approval
-      await supabase.from('price_update_requests').insert({
-        business_id: businessId,
-        item_type: category,
-        item_name: offering.title,
-        current_price: offering.price,
-        proposed_base_price: offering.price,
-        admin_percentage: 0,
-        admin_markup_amount: 0,
-        final_customer_price: offering.price,
-        status: 'approved',
-        notes: 'Vendor custom offering added from partner dashboard',
-      });
+      try {
+        await supabase.from('price_update_requests').insert({
+          business_id: businessId,
+          item_type: category,
+          item_name: offering.title,
+          current_price: offering.price,
+          proposed_base_price: offering.price,
+          admin_percentage: 0,
+          admin_markup_amount: 0,
+          final_customer_price: offering.price,
+          status: 'approved',
+          notes: 'Vendor custom offering added from partner dashboard',
+        });
+      } catch (priceErr) {
+        // Fallback without item_name column if DB lacks it
+        try {
+          await supabase.from('price_update_requests').insert({
+            business_id: businessId,
+            item_type: category,
+            current_price: offering.price,
+            proposed_base_price: offering.price,
+            admin_percentage: 0,
+            admin_markup_amount: 0,
+            final_customer_price: offering.price,
+            status: 'approved',
+            notes: `Offering: ${offering.title}`,
+          });
+        } catch {
+          // ignore
+        }
+      }
 
       return true;
     } catch (e: any) {

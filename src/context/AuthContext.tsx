@@ -106,8 +106,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const storedUser = await AsyncStorage.getItem(STORAGE_KEY_USER);
           if (storedUser && isMounted) {
             const parsed: UserProfile = JSON.parse(storedUser);
-            // If it's a demo or preset profile, restore it
-            if (parsed.id?.startsWith('usr-cust') || parsed.id?.startsWith('usr-vendor')) {
+            // If it's a demo or stored profile, restore it
+            if (
+              parsed.id?.startsWith('usr-cust') ||
+              parsed.id?.startsWith('usr-ven') ||
+              parsed.role === 'vendor' ||
+              parsed.role === 'customer'
+            ) {
               setCurrentUser(parsed);
             }
           }
