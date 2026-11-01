@@ -38,6 +38,10 @@ import {
   UserCheck,
   Utensils,
   Flower2,
+  Camera,
+  Music,
+  ChevronDown,
+  Layers,
   Eye,
   ShieldCheck,
   MessageCircle,
@@ -57,6 +61,7 @@ import {
   getPriceRequestsForBusiness,
   submitPriceUpdateRequest,
   addVendorReel,
+  addVendorOffering,
   getVendorInquiries,
   updateInquiryStatus,
   updateBusinessProfile,
@@ -64,6 +69,7 @@ import {
 } from '../lib/supabaseClient';
 import {
   Business,
+  BusinessCategory,
   PriceUpdateRequest,
   MediaReel,
   BookingInquiry,
@@ -109,6 +115,50 @@ const CATEGORY_IMAGE_PRESETS: Record<string, { label: string; url: string }[]> =
     { label: 'Concert Audio System', url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800' },
   ],
 };
+
+const SERVICE_CAPABILITIES: {
+  id: BusinessCategory;
+  name: string;
+  subtitle: string;
+  icon: any;
+  badge: string;
+}[] = [
+  {
+    id: 'venue',
+    name: 'Function Hall / Kalyana Mandapam',
+    subtitle: 'Hall specs, guest capacity, suites & 24-hr base tariff',
+    icon: Building,
+    badge: 'Hall Specs',
+  },
+  {
+    id: 'decoration',
+    name: 'Mandapam & Wedding Decor',
+    subtitle: 'Mandapam sets, entrance wayworks, sangeeth & home decor',
+    icon: Flower2,
+    badge: 'Sets & Themes',
+  },
+  {
+    id: 'catering',
+    name: 'Royal Catering & Feasts',
+    subtitle: 'Meal plans with menu items, price per plate & min plates',
+    icon: Utensils,
+    badge: 'Meal Plans',
+  },
+  {
+    id: 'photography',
+    name: '4K Photography & Cinema',
+    subtitle: 'Wedding cinema, traditional shoot, teaser reels & albums',
+    icon: Camera,
+    badge: 'Shoot Plans',
+  },
+  {
+    id: 'dj_sound',
+    name: 'DJ, Concert Sound & Stage Lights',
+    subtitle: 'Watts RMS line arrays, sharpie trusses & cold spark pyro',
+    icon: Music,
+    badge: 'Audio & Light',
+  },
+];
 
 interface VendorDashboardScreenProps {
   onSwitchToCustomer: () => void;
@@ -169,6 +219,31 @@ export default function VendorDashboardScreen({
   const [whatsappContact, setWhatsappContact] = useState(currentUser?.phone || '');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Active Capability / Service Dropdown State
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState<BusinessCategory>('decoration');
+  const [serviceDropdownVisible, setServiceDropdownVisible] = useState(false);
+  const [offeringSubFilter, setOfferingSubFilter] = useState<string>('all');
+
+  // Add Offering Modal State
+  const [addOfferingModalVisible, setAddOfferingModalVisible] = useState(false);
+  const [isSubmittingOffering, setIsSubmittingOffering] = useState(false);
+
+  // Offering form fields
+  const [offeringTitle, setOfferingTitle] = useState('');
+  const [offeringPrice, setOfferingPrice] = useState('');
+  const [offeringCeremonyType, setOfferingCeremonyType] = useState('mandapam');
+  const [offeringDimensions, setOfferingDimensions] = useState('30x25 ft');
+  const [offeringHeight, setOfferingHeight] = useState('16 ft');
+  const [offeringFlowers, setOfferingFlowers] = useState('Fresh Jasmine, Marigold & Lotus');
+  const [offeringDietType, setOfferingDietType] = useState<'veg' | 'non_veg' | 'mixed'>('veg');
+  const [offeringMinPlates, setOfferingMinPlates] = useState('100');
+  const [offeringHighlights, setOfferingHighlights] = useState('');
+  const [offeringDuration, setOfferingDuration] = useState('Full Day (Muhurtham & Reception)');
+  const [offeringCrew, setOfferingCrew] = useState('3 Cinematographers + 2 Traditional Photographers + Drone');
+  const [offeringPowerWatts, setOfferingPowerWatts] = useState('15,000 Watts RMS');
+  const [offeringEquipment, setOfferingEquipment] = useState('Line Array System, 16 Sharpie Beams, Cold Spark Pyro');
+  const [offeringPhotoUrl, setOfferingPhotoUrl] = useState('');
+
   // Fetch all business data
   const loadDashboardData = async () => {
     setLoading(true);
@@ -189,6 +264,9 @@ export default function VendorDashboardScreen({
 
       if (bizData) {
         setBusiness(bizData);
+        if (bizData.category) {
+          setSelectedServiceCategory(bizData.category);
+        }
         setBizName(bizData.name);
         setPhoneContact(bizData.phone || currentUser?.phone || '');
         setWhatsappContact(bizData.whatsapp_number || currentUser?.phone || '');
@@ -309,11 +387,13 @@ export default function VendorDashboardScreen({
   // Add Custom Ad / Offering Server-Side
   const handleCreateOffering = async () => {
     if (!offeringTitle.trim()) {
-      Alert.alert('Required', 'Please enter a title for this setup or package.');
+      Alert.alert('Required Details', 'Please enter a title or package name for this setup.');
       return;
     }
-    const cat = business?.category || 'decoration';
-    const parsedPrice = Number(offeringPrice || (cat === 'catering' ? 450 : 65000));
+    const cat = selectedServiceCategory;
+    const defaultFallbackPrice =
+      cat === 'catering' ? 450 : cat === 'photography' ? 45000 : cat === 'dj_sound' ? 25000 : 65000;
+    const parsedPrice = Number(offeringPrice || defaultFallbackPrice);
 
     setIsSubmittingOffering(true);
     playButtonClick();
@@ -327,13 +407,21 @@ export default function VendorDashboardScreen({
         height: offeringHeight.trim(),
         flower_type: offeringFlowers.trim(),
         diet_type: offeringDietType,
+        min_guest_count: Number(offeringMinPlates) || 100,
         price: parsedPrice,
-        menu_highlights: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
-        deliverables: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
+        menu_highlights: offeringHighlights
+          ? offeringHighlights.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Special Andhra Sweets', 'Paneer Butter Masala', 'Dum Biryani'],
+        deliverables: offeringHighlights
+          ? offeringHighlights.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['4K Cinematic Teaser (60s)', 'Full Ceremony Recording', 'Heirloom Photobook'],
         duration: offeringDuration.trim(),
         crew_count: offeringCrew.trim(),
         power_output_watts: offeringPowerWatts.trim(),
-        equipment_highlights: offeringHighlights.split(',').map(s => s.trim()).filter(Boolean),
+        equipment_highlights: offeringEquipment
+          ? offeringEquipment.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Line Array Sound System', 'Digital DJ Console', 'Cold Spark Pyro Guns'],
+        photo_url: offeringPhotoUrl.trim() || undefined,
       });
 
       if (success) {
@@ -342,7 +430,9 @@ export default function VendorDashboardScreen({
         if (updated) setBusiness(updated);
         setAddOfferingModalVisible(false);
         setOfferingTitle('');
-        Alert.alert('🎉 Published to Registry!', `"${offeringTitle}" has been saved to the database and approved by UtsavHub.`);
+        setOfferingPrice('');
+        setOfferingHighlights('');
+        Alert.alert('🎉 Published to Registry!', `"${offeringTitle}" has been saved server-side to the database and is live on UtsavHub.`);
       }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to add offering');
@@ -1210,230 +1300,488 @@ export default function VendorDashboardScreen({
             {/* TAB 2: SERVICES & PRICING */}
             {activeTab === 'pricing' && (
               <View style={styles.tabSection}>
-                {/* Top Action */}
-                <View style={styles.sectionHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionTitle}>Published Offerings & Ads</Text>
-                    <Text style={styles.sectionSub}>All packages stored server-side in live database</Text>
-                  </View>
-
+                {/* 1. Capability Dropdown Selector */}
+                <View style={styles.serviceSelectorContainer}>
+                  <Text style={styles.serviceSelectorHeading}>MANAGE SERVICE CAPABILITY</Text>
                   <TouchableOpacity
-                    style={styles.addBtn}
+                    style={styles.serviceDropdownBtn}
                     onPress={() => {
                       playButtonClick();
-                      setAddOfferingModalVisible(true);
+                      setServiceDropdownVisible(true);
                     }}
-                    activeOpacity={0.8}
+                    activeOpacity={0.85}
                   >
-                    <Plus size={15} color="#FFFFFF" />
-                    <Text style={styles.addBtnText}>+ Add Offering</Text>
+                    <View style={styles.serviceDropdownLeft}>
+                      <View style={styles.serviceDropdownIconWrap}>
+                        {selectedServiceCategory === 'venue' && <Building size={18} color="#0284C7" />}
+                        {selectedServiceCategory === 'decoration' && <Flower2 size={18} color="#C5A059" />}
+                        {selectedServiceCategory === 'catering' && <Utensils size={18} color="#059669" />}
+                        {selectedServiceCategory === 'photography' && <Camera size={18} color="#7C3AED" />}
+                        {selectedServiceCategory === 'dj_sound' && <Music size={18} color="#D97706" />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.serviceDropdownTitle}>
+                          {SERVICE_CAPABILITIES.find((s) => s.id === selectedServiceCategory)?.name || 'Mandapam & Decor'}
+                        </Text>
+                        <Text style={styles.serviceDropdownSub}>
+                          {SERVICE_CAPABILITIES.find((s) => s.id === selectedServiceCategory)?.subtitle}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.serviceDropdownChevron}>
+                      <ChevronDown size={18} color="#0B0B0E" />
+                    </View>
                   </TouchableOpacity>
                 </View>
 
-                {/* Base Starting Price Banner */}
-                <View style={styles.vendorStartingPriceCard}>
+                {/* 2. Top Header & Add Action */}
+                <View style={styles.sectionHeaderRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.vendorStartingPriceLabel}>BASE PRICE STARTS FROM</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                      <Text style={styles.vendorStartingPriceValue}>
-                        ₹{Number(
-                          business?.starting_price ||
-                          (business?.category === 'catering'
-                            ? 450
-                            : business?.category === 'decoration'
-                            ? 65000
-                            : business?.category === 'photography'
-                            ? 45000
-                            : business?.category === 'dj_sound'
-                            ? 25000
-                            : 150000)
-                        ).toLocaleString('en-IN')}
-                      </Text>
-                      {business?.category === 'catering' && (
-                        <Text style={{ fontSize: 13, color: '#8E8B99', marginLeft: 4 }}>/ plate</Text>
-                      )}
-                    </View>
+                    <Text style={styles.sectionTitle}>
+                      {selectedServiceCategory === 'venue'
+                        ? 'Hall Capacity & Base Tariff'
+                        : selectedServiceCategory === 'decoration'
+                        ? 'Mandapam Sets & Decor Ads'
+                        : selectedServiceCategory === 'catering'
+                        ? 'Catering Meal Plans & Feasts'
+                        : selectedServiceCategory === 'photography'
+                        ? '4K Cinema & Photography Plans'
+                        : 'Concert Sound & Stage Light Setups'}
+                    </Text>
+                    <Text style={styles.sectionSub}>
+                      {selectedServiceCategory === 'venue'
+                        ? 'Function hall owners manage capacity, suites & rental tariffs'
+                        : 'Published offerings saved server-side in live database'}
+                    </Text>
                   </View>
-                  <View style={styles.vendorNegotiableBadge}>
-                    <Text style={styles.vendorNegotiableBadgeText}>Negotiable</Text>
-                  </View>
+
+                  {selectedServiceCategory !== 'venue' && (
+                    <TouchableOpacity
+                      style={styles.addBtn}
+                      onPress={() => {
+                        playButtonClick();
+                        setOfferingCeremonyType(
+                          selectedServiceCategory === 'decoration'
+                            ? 'mandapam'
+                            : selectedServiceCategory === 'catering'
+                            ? 'veg'
+                            : selectedServiceCategory === 'photography'
+                            ? '3day_wedding'
+                            : 'sangeeth_dj'
+                        );
+                        setAddOfferingModalVisible(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Plus size={15} color="#FFFFFF" />
+                      <Text style={styles.addBtnText}>+ Add Offering</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                {/* Category-Specific Published Ads & Offerings */}
-                {business?.category === 'decoration' && (
-                  <View style={{ marginBottom: 12 }}>
-                    {(business.decor_items || []).map((item) => (
-                      <View key={item.id} style={styles.pricingCard}>
-                        <View style={styles.pricingCardTop}>
-                          <Flower2 size={20} color="#C5A059" />
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <Text style={styles.vendorCategoryBadgeText}>
-                                {item.element_type.toUpperCase().replace('_', ' ')}
-                              </Text>
-                              <View style={styles.vendorMiniNegotiableTag}>
-                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.pricingTitle}>{item.title}</Text>
-                            <Text style={styles.pricingSub}>
-                              {item.dimensions ? `Size: ${item.dimensions}` : ''}
-                              {item.height ? ` • Height: ${item.height}` : ''}
-                              {item.flower_type ? ` • ${item.flower_type}` : ''}
-                            </Text>
-                          </View>
-                          <View style={styles.pricePill}>
-                            <Text style={styles.pricePillText}>
-                              ₹{Number(item.base_price || 0).toLocaleString('en-IN')}
-                            </Text>
-                            <Text style={styles.pricePillUnit}>/ event</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {business?.category === 'catering' && (
-                  <View style={{ marginBottom: 12 }}>
-                    {(business.catering_packages || []).map((pkg) => (
-                      <View key={pkg.id} style={styles.pricingCard}>
-                        <View style={styles.pricingCardTop}>
-                          <Utensils size={20} color="#C5A059" />
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <Text style={styles.vendorCategoryBadgeText}>
-                                {pkg.package_type.toUpperCase()} CATERING FEAST
-                              </Text>
-                              <View style={styles.vendorMiniNegotiableTag}>
-                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.pricingTitle}>{pkg.package_name}</Text>
-                            <Text style={styles.pricingSub} numberOfLines={2}>
-                              {pkg.menu_highlights.join(' • ')}
-                            </Text>
-                          </View>
-                          <View style={styles.pricePill}>
-                            <Text style={styles.pricePillText}>
-                              ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')}
-                            </Text>
-                            <Text style={styles.pricePillUnit}>/ plate</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-
-                    {(business.catering_items || []).map((cItem) => (
-                      <View key={cItem.id} style={styles.pricingCard}>
-                        <View style={styles.pricingCardTop}>
-                          <Utensils size={18} color="#059669" />
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <Text style={styles.vendorCategoryBadgeText}>
-                                {cItem.category.toUpperCase().replace('_', ' ')}
-                              </Text>
-                              <View style={styles.vendorMiniNegotiableTag}>
-                                <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.pricingTitle}>{cItem.item_name}</Text>
-                          </View>
-                          <View style={styles.pricePill}>
-                            <Text style={styles.pricePillText}>
-                              ₹{Number(cItem.base_price_per_plate || 50).toLocaleString('en-IN')}
-                            </Text>
-                            <Text style={styles.pricePillUnit}>/ plate</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {business?.category === 'photography' && (
-                  <View style={{ marginBottom: 12 }}>
-                    {(business.photography_packages || []).map((pkg) => (
-                      <View key={pkg.id} style={styles.pricingCard}>
-                        <View style={styles.pricingCardTop}>
-                          <Camera size={20} color="#C5A059" />
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <Text style={styles.vendorCategoryBadgeText}>
-                                {pkg.package_type.toUpperCase().replace('_', ' ')}
-                              </Text>
-                              <View style={styles.vendorMiniNegotiableTag}>
-                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.pricingTitle}>{pkg.title}</Text>
-                            <Text style={styles.pricingSub}>
-                              {pkg.duration ? `${pkg.duration} • ` : ''}{pkg.crew_count || ''}
-                            </Text>
-                            <Text style={[styles.pricingSub, { marginTop: 4 }]} numberOfLines={2}>
-                              Deliverables: {pkg.deliverables.join(' • ')}
-                            </Text>
-                          </View>
-                          <View style={styles.pricePill}>
-                            <Text style={styles.pricePillText}>
-                              ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
-                            </Text>
-                            <Text style={styles.pricePillUnit}>/ package</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {business?.category === 'dj_sound' && (
-                  <View style={{ marginBottom: 12 }}>
-                    {(business.dj_sound_packages || []).map((pkg) => (
-                      <View key={pkg.id} style={styles.pricingCard}>
-                        <View style={styles.pricingCardTop}>
-                          <Music size={20} color="#C5A059" />
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <Text style={styles.vendorCategoryBadgeText}>
-                                {pkg.package_type.toUpperCase().replace('_', ' ')}
-                              </Text>
-                              <View style={styles.vendorMiniNegotiableTag}>
-                                <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.pricingTitle}>{pkg.title}</Text>
-                            <Text style={styles.pricingSub}>
-                              {pkg.power_output_watts ? `Output: ${pkg.power_output_watts} • ` : ''}
-                              {pkg.equipment_highlights.join(' • ')}
-                            </Text>
-                          </View>
-                          <View style={styles.pricePill}>
-                            <Text style={styles.pricePillText}>
-                              ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
-                            </Text>
-                            <Text style={styles.pricePillUnit}>/ setup</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {business?.category === 'venue' && (
-                  <View style={styles.pricingCard}>
-                    <View style={styles.pricingCardTop}>
-                      <Building size={20} color="#C5A059" />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental</Text>
-                        <Text style={styles.pricingSub}>Includes {roomsCount} AC Deluxe Rooms, Generator & Security</Text>
-                      </View>
-                      <View style={styles.pricePill}>
-                        <Text style={styles.pricePillText}>
-                          ₹{Number(currentBasePrice).toLocaleString('en-IN')}
+                {/* CASE A: FUNCTION HALL (No packages needed, just hall specs) */}
+                {selectedServiceCategory === 'venue' && (
+                  <View style={styles.venueSpecsSection}>
+                    <View style={styles.venueSpecsHeaderCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.venueSpecsHeaderTitle}>Hall Technical Specifications</Text>
+                        <Text style={styles.venueSpecsHeaderSub}>
+                          Seating capacity, floating space, guest rooms, parking & generator backup
                         </Text>
-                        <Text style={styles.pricePillUnit}>/ day</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.editSpecsBtn}
+                        onPress={() => {
+                          playButtonClick();
+                          setProfileModalVisible(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Sliders size={14} color="#0B0B0E" />
+                        <Text style={styles.editSpecsBtnText}>Edit Hall Specs</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.specsMatrixCard}>
+                      <View style={styles.specGridRow}>
+                        <View style={styles.specGridItem}>
+                          <Users size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{seatingCap} Guests</Text>
+                          <Text style={styles.specGridName}>Seating Capacity</Text>
+                        </View>
+                        <View style={styles.specGridDivider} />
+                        <View style={styles.specGridItem}>
+                          <Users size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{floatingCap} Guests</Text>
+                          <Text style={styles.specGridName}>Floating Capacity</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.specGridRowDivider} />
+
+                      <View style={styles.specGridRow}>
+                        <View style={styles.specGridItem}>
+                          <Building size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{roomsCount} Deluxe Rooms</Text>
+                          <Text style={styles.specGridName}>AC Guest Suites</Text>
+                        </View>
+                        <View style={styles.specGridDivider} />
+                        <View style={styles.specGridItem}>
+                          <Car size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{parkingCars} Cars</Text>
+                          <Text style={styles.specGridName}>Parking Bays</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.specGridRowDivider} />
+
+                      <View style={styles.specGridRow}>
+                        <View style={styles.specGridItem}>
+                          <Zap size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{powerBackup} kVA</Text>
+                          <Text style={styles.specGridName}>Generator Backup</Text>
+                        </View>
+                        <View style={styles.specGridDivider} />
+                        <View style={styles.specGridItem}>
+                          <Utensils size={18} color="#C5A059" />
+                          <Text style={styles.specGridVal}>{outsideFood ? 'Allowed' : 'In-House Only'}</Text>
+                          <Text style={styles.specGridName}>Outside Catering</Text>
+                        </View>
                       </View>
                     </View>
+
+                    {/* 24-Hour Rental Tariff Card */}
+                    <View style={styles.pricingCard}>
+                      <View style={styles.pricingCardTop}>
+                        <Building size={20} color="#C5A059" />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <Text style={styles.vendorCategoryBadgeText}>CONVENTION HALL RENTAL</Text>
+                            <View style={styles.vendorMiniNegotiableTag}>
+                              <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.pricingTitle}>AC Grand Hall 24-Hour Rental Tariff</Text>
+                          <Text style={styles.pricingSub}>Includes {roomsCount} AC Deluxe Rooms, Generator & Security</Text>
+                        </View>
+                        <View style={styles.pricePill}>
+                          <Text style={styles.pricePillText}>
+                            ₹{Number(currentBasePrice).toLocaleString('en-IN')}
+                          </Text>
+                          <Text style={styles.pricePillUnit}>/ 24-hr day</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* CASE B: DECORATION & MANDAPAMS */}
+                {selectedServiceCategory === 'decoration' && (
+                  <View style={{ marginBottom: 12 }}>
+                    {/* Sub-filter chips */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
+                      {[
+                        { id: 'all', label: 'All Sets' },
+                        { id: 'mandapam', label: 'Mandapam Sets' },
+                        { id: 'wayworks_entrance', label: 'Wayworks & Entrance' },
+                        { id: 'sangeeth', label: 'Sangeeth Stages' },
+                        { id: 'rata_muhurtham', label: 'Rata Muhurtham' },
+                        { id: 'kalagollu_sambaralu', label: 'Kalagollu Sambaralu' },
+                        { id: 'home_decor', label: 'Home Decor' },
+                      ].map((chip) => (
+                        <TouchableOpacity
+                          key={chip.id}
+                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
+                          onPress={() => setOfferingSubFilter(chip.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
+                            {chip.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {(business?.decor_items || [])
+                      .filter((item) => offeringSubFilter === 'all' || item.element_type === offeringSubFilter)
+                      .map((item) => (
+                        <View key={item.id} style={styles.pricingCard}>
+                          <View style={styles.pricingCardTop}>
+                            <Flower2 size={20} color="#C5A059" />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Text style={styles.vendorCategoryBadgeText}>
+                                  {item.element_type.toUpperCase().replace(/_/g, ' ')}
+                                </Text>
+                                <View style={styles.vendorMiniNegotiableTag}>
+                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.pricingTitle}>{item.title}</Text>
+                              <Text style={styles.pricingSub}>
+                                {item.dimensions ? `Size: ${item.dimensions}` : ''}
+                                {item.height ? ` • Height: ${item.height}` : ''}
+                                {item.flower_type ? ` • ${item.flower_type}` : ''}
+                              </Text>
+                            </View>
+                            <View style={styles.pricePill}>
+                              <Text style={styles.pricePillText}>
+                                ₹{Number(item.base_price || 0).toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={styles.pricePillUnit}>/ event</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+
+                    {(!business?.decor_items || business.decor_items.length === 0) && (
+                      <View style={styles.emptyOfferingCard}>
+                        <Flower2 size={32} color="#C5A059" />
+                        <Text style={styles.emptyOfferingTitle}>No Decor Sets Published Yet</Text>
+                        <Text style={styles.emptyOfferingSub}>
+                          Post Mandapam sets, Entrance Wayworks, Sangeeth stages, Kalagollu or Home Decor.
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.emptyAddBtn}
+                          onPress={() => {
+                            setOfferingCeremonyType('mandapam');
+                            setAddOfferingModalVisible(true);
+                          }}
+                        >
+                          <Text style={styles.emptyAddBtnText}>+ Add First Decor Set</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* CASE C: CATERING & ROYAL FEASTS */}
+                {selectedServiceCategory === 'catering' && (
+                  <View style={{ marginBottom: 12 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
+                      {[
+                        { id: 'all', label: 'All Feasts' },
+                        { id: 'veg', label: 'Pure Veg Feasts' },
+                        { id: 'non_veg', label: 'Non-Veg Feasts' },
+                        { id: 'mixed', label: 'Grand Buffets' },
+                      ].map((chip) => (
+                        <TouchableOpacity
+                          key={chip.id}
+                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
+                          onPress={() => setOfferingSubFilter(chip.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
+                            {chip.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {(business?.catering_packages || [])
+                      .filter((pkg) => offeringSubFilter === 'all' || (pkg.package_type || pkg.diet_type) === offeringSubFilter)
+                      .map((pkg) => (
+                        <View key={pkg.id} style={styles.pricingCard}>
+                          <View style={styles.pricingCardTop}>
+                            <Utensils size={20} color="#059669" />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Text style={styles.vendorCategoryBadgeText}>
+                                  {(pkg.package_type || pkg.diet_type || 'VEG').toUpperCase()} FEAST
+                                </Text>
+                                <View style={styles.minGuestPill}>
+                                  <Text style={styles.minGuestPillText}>Min {pkg.min_guest_count || 100} plates</Text>
+                                </View>
+                                <View style={styles.vendorMiniNegotiableTag}>
+                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.pricingTitle}>{pkg.package_name}</Text>
+                              <Text style={styles.pricingSub} numberOfLines={2}>
+                                {pkg.menu_highlights.join(' • ')}
+                              </Text>
+                            </View>
+                            <View style={styles.pricePill}>
+                              <Text style={styles.pricePillText}>
+                                ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={styles.pricePillUnit}>/ plate</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+
+                    {(!business?.catering_packages || business.catering_packages.length === 0) && (
+                      <View style={styles.emptyOfferingCard}>
+                        <Utensils size={32} color="#059669" />
+                        <Text style={styles.emptyOfferingTitle}>No Catering Meal Plans Yet</Text>
+                        <Text style={styles.emptyOfferingSub}>
+                          Post Royal Andhra Muhurtham Bhojanam, Buffet spreads with items & minimum plates count.
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.emptyAddBtn}
+                          onPress={() => {
+                            setOfferingCeremonyType('veg');
+                            setAddOfferingModalVisible(true);
+                          }}
+                        >
+                          <Text style={styles.emptyAddBtnText}>+ Add First Meal Plan</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* CASE D: PHOTOGRAPHY & CINEMA */}
+                {selectedServiceCategory === 'photography' && (
+                  <View style={{ marginBottom: 12 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
+                      {[
+                        { id: 'all', label: 'All Plans' },
+                        { id: '3day_wedding', label: 'Wedding Cinema' },
+                        { id: 'muhurtham_traditional', label: 'Traditional Muhurtham' },
+                        { id: 'song_teaser', label: 'Song & Teaser Shoot' },
+                        { id: 'pre_wedding', label: 'Pre-Wedding' },
+                      ].map((chip) => (
+                        <TouchableOpacity
+                          key={chip.id}
+                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
+                          onPress={() => setOfferingSubFilter(chip.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
+                            {chip.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {(business?.photography_packages || [])
+                      .filter((pkg) => offeringSubFilter === 'all' || pkg.package_type === offeringSubFilter)
+                      .map((pkg) => (
+                        <View key={pkg.id} style={styles.pricingCard}>
+                          <View style={styles.pricingCardTop}>
+                            <Camera size={20} color="#7C3AED" />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Text style={styles.vendorCategoryBadgeText}>
+                                  {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
+                                </Text>
+                                <View style={styles.vendorMiniNegotiableTag}>
+                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                              <Text style={styles.pricingSub}>
+                                {pkg.duration ? `${pkg.duration} • ` : ''}{pkg.crew_count || ''}
+                              </Text>
+                              <Text style={[styles.pricingSub, { marginTop: 4 }]} numberOfLines={2}>
+                                Deliverables: {pkg.deliverables.join(' • ')}
+                              </Text>
+                            </View>
+                            <View style={styles.pricePill}>
+                              <Text style={styles.pricePillText}>
+                                ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={styles.pricePillUnit}>/ package</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+
+                    {(!business?.photography_packages || business.photography_packages.length === 0) && (
+                      <View style={styles.emptyOfferingCard}>
+                        <Camera size={32} color="#7C3AED" />
+                        <Text style={styles.emptyOfferingTitle}>No Photography Plans Yet</Text>
+                        <Text style={styles.emptyOfferingSub}>
+                          Post 4K Cinematic Wedding Film, Traditional Muhurtham, or Pre-Wedding Teaser packages.
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.emptyAddBtn}
+                          onPress={() => {
+                            setOfferingCeremonyType('3day_wedding');
+                            setAddOfferingModalVisible(true);
+                          }}
+                        >
+                          <Text style={styles.emptyAddBtnText}>+ Add First Photography Plan</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* CASE E: DJ, SOUND & STAGE LIGHTING */}
+                {selectedServiceCategory === 'dj_sound' && (
+                  <View style={{ marginBottom: 12 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subfilterScroll} contentContainerStyle={styles.subfilterScrollContent}>
+                      {[
+                        { id: 'all', label: 'All Setups' },
+                        { id: 'sangeeth_dj', label: 'Sangeeth DJ Concert' },
+                        { id: 'custom', label: 'Reception Live Sound' },
+                        { id: 'truss_pyro', label: 'Truss, Lights & Pyro' },
+                      ].map((chip) => (
+                        <TouchableOpacity
+                          key={chip.id}
+                          style={[styles.subfilterChip, offeringSubFilter === chip.id && styles.subfilterChipActive]}
+                          onPress={() => setOfferingSubFilter(chip.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.subfilterChipText, offeringSubFilter === chip.id && styles.subfilterChipTextActive]}>
+                            {chip.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {(business?.dj_sound_packages || [])
+                      .filter((pkg) => offeringSubFilter === 'all' || pkg.package_type === offeringSubFilter)
+                      .map((pkg) => (
+                        <View key={pkg.id} style={styles.pricingCard}>
+                          <View style={styles.pricingCardTop}>
+                            <Music size={20} color="#D97706" />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Text style={styles.vendorCategoryBadgeText}>
+                                  {pkg.package_type.toUpperCase().replace(/_/g, ' ')}
+                                </Text>
+                                <View style={styles.vendorMiniNegotiableTag}>
+                                  <Text style={styles.vendorMiniNegotiableTagText}>Approved by UtsavHub</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.pricingTitle}>{pkg.title}</Text>
+                              <Text style={styles.pricingSub}>
+                                {pkg.power_output_watts ? `Output: ${pkg.power_output_watts} • ` : ''}
+                                {pkg.equipment_highlights.join(' • ')}
+                              </Text>
+                            </View>
+                            <View style={styles.pricePill}>
+                              <Text style={styles.pricePillText}>
+                                ₹{Number(pkg.base_price || 0).toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={styles.pricePillUnit}>/ setup</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+
+                    {(!business?.dj_sound_packages || business.dj_sound_packages.length === 0) && (
+                      <View style={styles.emptyOfferingCard}>
+                        <Music size={32} color="#D97706" />
+                        <Text style={styles.emptyOfferingTitle}>No DJ Sound Setups Yet</Text>
+                        <Text style={styles.emptyOfferingSub}>
+                          Post Concert Audio (Watts RMS), Beam 230 Sharpie Lighting, Trussing & Cold Pyro packages.
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.emptyAddBtn}
+                          onPress={() => {
+                            setOfferingCeremonyType('sangeeth_dj');
+                            setAddOfferingModalVisible(true);
+                          }}
+                        >
+                          <Text style={styles.emptyAddBtnText}>+ Add First Sound Setup</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -1877,6 +2225,426 @@ export default function VendorDashboardScreen({
                   <ActivityIndicator color="#09090B" />
                 ) : (
                   <Text style={styles.submitModalBtnText}>Save Specifications</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 8. MODAL: SERVICE CAPABILITY SELECTOR */}
+      <Modal visible={serviceDropdownVisible} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.dropdownDialog}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select Business Service</Text>
+                <Text style={styles.modalSubTitle}>Choose capability to manage offerings & pricing</Text>
+              </View>
+              <TouchableOpacity onPress={() => setServiceDropdownVisible(false)}>
+                <X size={20} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {SERVICE_CAPABILITIES.map((cap) => {
+                const isSelected = selectedServiceCategory === cap.id;
+                const IconComponent = cap.icon;
+                return (
+                  <TouchableOpacity
+                    key={cap.id}
+                    style={[styles.serviceOptionRow, isSelected && styles.serviceOptionRowActive]}
+                    onPress={() => {
+                      playButtonClick();
+                      setSelectedServiceCategory(cap.id);
+                      setOfferingSubFilter('all');
+                      setServiceDropdownVisible(false);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.serviceOptionIconCircle, isSelected && styles.serviceOptionIconCircleActive]}>
+                      <IconComponent size={20} color={isSelected ? '#C5A059' : '#0B0B0E'} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.serviceOptionTitle, isSelected && styles.serviceOptionTitleActive]}>
+                          {cap.name}
+                        </Text>
+                        <View style={[styles.serviceOptionBadge, isSelected && styles.serviceOptionBadgeActive]}>
+                          <Text style={[styles.serviceOptionBadgeText, isSelected && styles.serviceOptionBadgeTextActive]}>
+                            {cap.badge}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.serviceOptionSub}>{cap.subtitle}</Text>
+                    </View>
+                    {isSelected && <Check size={18} color="#C5A059" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 9. MODAL: ADD CUSTOM OFFERING / AD */}
+      <Modal visible={addOfferingModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalDialog, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  {selectedServiceCategory === 'decoration'
+                    ? 'Publish Decor / Mandapam Set'
+                    : selectedServiceCategory === 'catering'
+                    ? 'Publish Catering Meal Plan'
+                    : selectedServiceCategory === 'photography'
+                    ? 'Publish Photography Plan'
+                    : 'Publish Sound & Lighting Setup'}
+                </Text>
+                <Text style={styles.modalSubTitle}>
+                  Saved server-side to database and displayed in Explore
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setAddOfferingModalVisible(false);
+                  setOfferingTitle('');
+                }}
+              >
+                <X size={20} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
+              {/* CATEGORY A: DECORATION */}
+              {selectedServiceCategory === 'decoration' && (
+                <>
+                  <Text style={styles.inputLabel}>DECOR ELEMENT TYPE *</Text>
+                  <View style={styles.chipSelectorWrap}>
+                    {[
+                      { id: 'mandapam', label: 'Mandapam Set' },
+                      { id: 'wayworks_entrance', label: 'Wayworks & Entrance' },
+                      { id: 'sangeeth', label: 'Sangeeth Stage' },
+                      { id: 'rata_muhurtham', label: 'Rata Muhurtham' },
+                      { id: 'kalagollu_sambaralu', label: 'Kalagollu Sambaralu' },
+                      { id: 'home_decor', label: 'Home Decor' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[styles.selectorChip, offeringCeremonyType === opt.id && styles.selectorChipActive]}
+                        onPress={() => setOfferingCeremonyType(opt.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.selectorChipText, offeringCeremonyType === opt.id && styles.selectorChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>SET / AD TITLE *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringTitle}
+                    onChangeText={setOfferingTitle}
+                    placeholder="e.g. Royal Temple Gopuram Grand Mandapam"
+                    placeholderTextColor="#8E8B99"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>DIMENSIONS</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringDimensions}
+                        onChangeText={setOfferingDimensions}
+                        placeholder="e.g. 30x25 ft"
+                        placeholderTextColor="#8E8B99"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>HEIGHT</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringHeight}
+                        onChangeText={setOfferingHeight}
+                        placeholder="e.g. 16 ft"
+                        placeholderTextColor="#8E8B99"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.inputLabel}>FLOWER MATERIALS & THEME</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringFlowers}
+                    onChangeText={setOfferingFlowers}
+                    placeholder="e.g. Fresh Jasmine, Marigold, Lotus & Imported Orchids"
+                    placeholderTextColor="#8E8B99"
+                  />
+
+                  <Text style={styles.inputLabel}>TARIFF / PRICE (₹) *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringPrice}
+                    onChangeText={setOfferingPrice}
+                    placeholder="e.g. 85000"
+                    placeholderTextColor="#8E8B99"
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              {/* CATEGORY B: CATERING */}
+              {selectedServiceCategory === 'catering' && (
+                <>
+                  <Text style={styles.inputLabel}>DIET TYPE *</Text>
+                  <View style={styles.chipSelectorWrap}>
+                    {[
+                      { id: 'veg', label: 'Pure Veg Feast' },
+                      { id: 'non_veg', label: 'Non-Veg Royal Feast' },
+                      { id: 'mixed', label: 'Grand Mixed Buffet' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[styles.selectorChip, offeringDietType === opt.id && styles.selectorChipActive]}
+                        onPress={() => setOfferingDietType(opt.id as any)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.selectorChipText, offeringDietType === opt.id && styles.selectorChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>MEAL PLAN NAME *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringTitle}
+                    onChangeText={setOfferingTitle}
+                    placeholder="e.g. Traditional Andhra Muhurtham Bhojanam"
+                    placeholderTextColor="#8E8B99"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>PRICE PER PLATE (₹) *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringPrice}
+                        onChangeText={setOfferingPrice}
+                        placeholder="e.g. 480"
+                        placeholderTextColor="#8E8B99"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>MINIMUM PLATES *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringMinPlates}
+                        onChangeText={setOfferingMinPlates}
+                        placeholder="e.g. 150"
+                        placeholderTextColor="#8E8B99"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.inputLabel}>VARIETY OF ITEMS / MENU HIGHLIGHTS *</Text>
+                  <TextInput
+                    style={[styles.textInput, { height: 75 }]}
+                    value={offeringHighlights}
+                    onChangeText={setOfferingHighlights}
+                    placeholder="e.g. Ghee Pulav, Poori, Paneer Butter Masala, Bobbatlu, Gutti Vankaya, Kakinada Kaja, Veg Dum Biryani, Special Raita, Ice Cream"
+                    placeholderTextColor="#8E8B99"
+                    multiline
+                  />
+                </>
+              )}
+
+              {/* CATEGORY C: PHOTOGRAPHY */}
+              {selectedServiceCategory === 'photography' && (
+                <>
+                  <Text style={styles.inputLabel}>PACKAGE TYPE *</Text>
+                  <View style={styles.chipSelectorWrap}>
+                    {[
+                      { id: '3day_wedding', label: 'Wedding Cinema' },
+                      { id: 'muhurtham_traditional', label: 'Traditional Muhurtham' },
+                      { id: 'song_teaser', label: 'Song / Teaser Shoot' },
+                      { id: 'pre_wedding', label: 'Pre-Wedding Shoot' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[styles.selectorChip, offeringCeremonyType === opt.id && styles.selectorChipActive]}
+                        onPress={() => setOfferingCeremonyType(opt.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.selectorChipText, offeringCeremonyType === opt.id && styles.selectorChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>PLAN TITLE *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringTitle}
+                    onChangeText={setOfferingTitle}
+                    placeholder="e.g. 4K Cinematic Wedding Film + Drone + Heirloom Album"
+                    placeholderTextColor="#8E8B99"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>SHOOT DURATION</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringDuration}
+                        onChangeText={setOfferingDuration}
+                        placeholder="e.g. Full Day"
+                        placeholderTextColor="#8E8B99"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>CREW DETAILS</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringCrew}
+                        onChangeText={setOfferingCrew}
+                        placeholder="e.g. 3 Cinematographers + 2 Stills + Drone"
+                        placeholderTextColor="#8E8B99"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.inputLabel}>DELIVERABLES (COMMA SEPARATED)</Text>
+                  <TextInput
+                    style={[styles.textInput, { height: 60 }]}
+                    value={offeringHighlights}
+                    onChangeText={setOfferingHighlights}
+                    placeholder="e.g. 4K Teaser Reel (60s), 35-min Wedding Film, 350-page Layflat Album"
+                    placeholderTextColor="#8E8B99"
+                    multiline
+                  />
+
+                  <Text style={styles.inputLabel}>PACKAGE TARIFF (₹) *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringPrice}
+                    onChangeText={setOfferingPrice}
+                    placeholder="e.g. 120000"
+                    placeholderTextColor="#8E8B99"
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              {/* CATEGORY D: DJ, SOUND & STAGE LIGHTS */}
+              {selectedServiceCategory === 'dj_sound' && (
+                <>
+                  <Text style={styles.inputLabel}>SETUP TYPE *</Text>
+                  <View style={styles.chipSelectorWrap}>
+                    {[
+                      { id: 'sangeeth_dj', label: 'Sangeeth DJ Concert' },
+                      { id: 'custom', label: 'Reception Live Sound' },
+                      { id: 'truss_pyro', label: 'Truss, Lights & Pyro' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[styles.selectorChip, offeringCeremonyType === opt.id && styles.selectorChipActive]}
+                        onPress={() => setOfferingCeremonyType(opt.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.selectorChipText, offeringCeremonyType === opt.id && styles.selectorChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>SETUP TITLE *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={offeringTitle}
+                    onChangeText={setOfferingTitle}
+                    placeholder="e.g. 20,000 Watts RMS Line Array & Concert Stage Lighting"
+                    placeholderTextColor="#8E8B99"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>POWER OUTPUT</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringPowerWatts}
+                        onChangeText={setOfferingPowerWatts}
+                        placeholder="e.g. 15,000 Watts RMS"
+                        placeholderTextColor="#8E8B99"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>TARIFF / PRICE (₹) *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={offeringPrice}
+                        onChangeText={setOfferingPrice}
+                        placeholder="e.g. 45000"
+                        placeholderTextColor="#8E8B99"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.inputLabel}>EQUIPMENT & EFFECTS</Text>
+                  <TextInput
+                    style={[styles.textInput, { height: 60 }]}
+                    value={offeringEquipment}
+                    onChangeText={setOfferingEquipment}
+                    placeholder="e.g. Line Array System, 16 Sharpie Beams, Fog Machine, Cold Spark Pyro Guns"
+                    placeholderTextColor="#8E8B99"
+                    multiline
+                  />
+                </>
+              )}
+
+              {/* Photo Preset Selector */}
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>CHOOSE PREVIEW IMAGE (OR ENTER URL)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                {(CATEGORY_IMAGE_PRESETS[selectedServiceCategory] || CATEGORY_IMAGE_PRESETS.decoration).map((preset, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[styles.presetThumbWrap, offeringPhotoUrl === preset.url && styles.presetThumbWrapActive]}
+                    onPress={() => setOfferingPhotoUrl(preset.url)}
+                    activeOpacity={0.8}
+                  >
+                    <Image source={{ uri: preset.url }} style={styles.presetThumb} />
+                    <Text style={styles.presetThumbText} numberOfLines={1}>{preset.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                style={styles.textInput}
+                value={offeringPhotoUrl}
+                onChangeText={setOfferingPhotoUrl}
+                placeholder="Or paste custom image URL (https://...)"
+                placeholderTextColor="#8E8B99"
+              />
+
+              <TouchableOpacity
+                style={styles.submitModalBtn}
+                onPress={handleCreateOffering}
+                disabled={isSubmittingOffering}
+                activeOpacity={0.85}
+              >
+                {isSubmittingOffering ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.submitModalBtnText}>Publish to UtsavHub Registry</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -3182,5 +3950,317 @@ const styles = StyleSheet.create({
     fontFamily: THEME.fonts.bold,
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  serviceSelectorContainer: {
+    marginBottom: 16,
+  },
+  serviceSelectorHeading: {
+    fontSize: 10.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#8C6F34',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  serviceDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#C5A059',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#C5A059',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  serviceDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  serviceDropdownIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FCFAF5',
+    borderWidth: 1,
+    borderColor: '#E8DEC8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceDropdownTitle: {
+    fontSize: 14.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
+    letterSpacing: -0.2,
+  },
+  serviceDropdownSub: {
+    fontSize: 11,
+    fontFamily: THEME.fonts.regular,
+    color: '#6B6875',
+    marginTop: 2,
+  },
+  serviceDropdownChevron: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FAF9F6',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  venueSpecsSection: {
+    marginBottom: 16,
+  },
+  venueSpecsHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    marginBottom: 12,
+  },
+  venueSpecsHeaderTitle: {
+    fontSize: 14,
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
+  },
+  venueSpecsHeaderSub: {
+    fontSize: 11.5,
+    fontFamily: THEME.fonts.regular,
+    color: '#6B6875',
+    marginTop: 2,
+  },
+  editSpecsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FAF6ED',
+    borderWidth: 1,
+    borderColor: '#C5A059',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  editSpecsBtnText: {
+    fontSize: 11.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
+  },
+  subfilterScroll: {
+    marginBottom: 12,
+  },
+  subfilterScrollContent: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  subfilterChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  subfilterChipActive: {
+    backgroundColor: '#0B0B0E',
+    borderColor: '#0B0B0E',
+  },
+  subfilterChipText: {
+    fontSize: 11.5,
+    fontFamily: THEME.fonts.semiBold,
+    color: '#4A4852',
+  },
+  subfilterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  minGuestPill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  minGuestPillText: {
+    fontSize: 9.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#1D4ED8',
+  },
+  emptyOfferingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  emptyOfferingTitle: {
+    fontSize: 15,
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
+    marginTop: 10,
+  },
+  emptyOfferingSub: {
+    fontSize: 12,
+    fontFamily: THEME.fonts.regular,
+    color: '#6B6875',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+    lineHeight: 17,
+  },
+  emptyAddBtn: {
+    backgroundColor: '#0B0B0E',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+  },
+  emptyAddBtnText: {
+    fontSize: 12.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#FFFFFF',
+  },
+  dropdownDialog: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    width: '92%',
+    maxWidth: 480,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  modalSubTitle: {
+    fontSize: 11.5,
+    fontFamily: THEME.fonts.regular,
+    color: '#6B6875',
+    marginTop: 2,
+  },
+  serviceOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF9F6',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+  },
+  serviceOptionRowActive: {
+    backgroundColor: '#FCFAF5',
+    borderColor: '#C5A059',
+  },
+  serviceOptionIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceOptionIconCircleActive: {
+    backgroundColor: '#FAF6ED',
+    borderColor: '#C5A059',
+  },
+  serviceOptionTitle: {
+    fontSize: 13.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#0B0B0E',
+  },
+  serviceOptionTitleActive: {
+    color: '#8C6F34',
+  },
+  serviceOptionBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  serviceOptionBadgeActive: {
+    backgroundColor: '#FAF6ED',
+  },
+  serviceOptionBadgeText: {
+    fontSize: 9.5,
+    fontFamily: THEME.fonts.bold,
+    color: '#475569',
+  },
+  serviceOptionBadgeTextActive: {
+    color: '#8C6F34',
+  },
+  serviceOptionSub: {
+    fontSize: 11,
+    fontFamily: THEME.fonts.regular,
+    color: '#6B6875',
+    marginTop: 2,
+  },
+  chipSelectorWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginBottom: 12,
+  },
+  selectorChip: {
+    backgroundColor: '#F5F5F7',
+    borderWidth: 1,
+    borderColor: '#E8E6E1',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  selectorChipActive: {
+    backgroundColor: '#0B0B0E',
+    borderColor: '#0B0B0E',
+  },
+  selectorChipText: {
+    fontSize: 11.5,
+    fontFamily: THEME.fonts.medium,
+    color: '#4A4852',
+  },
+  selectorChipTextActive: {
+    fontFamily: THEME.fonts.bold,
+    color: '#FFFFFF',
+  },
+  presetThumbWrap: {
+    width: 80,
+    marginRight: 8,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E8E6E1',
+  },
+  presetThumbWrapActive: {
+    borderColor: '#C5A059',
+  },
+  presetThumb: {
+    width: '100%',
+    height: 55,
+    resizeMode: 'cover',
+  },
+  presetThumbText: {
+    fontSize: 9,
+    fontFamily: THEME.fonts.semiBold,
+    color: '#4A4852',
+    padding: 3,
+    backgroundColor: '#FFFFFF',
+    textAlign: 'center',
   },
 });

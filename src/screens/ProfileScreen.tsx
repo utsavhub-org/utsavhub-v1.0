@@ -608,44 +608,66 @@ export default function ProfileScreen({
 
       {currentUser?.vendorApplicationStatus === 'pending_verification' && (
         <View style={styles.partnerPendingCard}>
-          <View style={styles.partnerPendingHeader}>
-            <Clock size={16} color="#D97706" />
-            <Text style={styles.partnerPendingTitle}>APPLICATION UNDER ADMIN REVIEW</Text>
+          <View style={styles.partnerPendingTopRow}>
+            <View style={styles.partnerPendingBadge}>
+              <Clock size={12} color="#B45309" />
+              <Text style={styles.partnerPendingBadgeText}>APPLICATION PENDING UNDER REVIEW</Text>
+            </View>
+            <View style={styles.partnerPendingEtaBadge}>
+              <Text style={styles.partnerPendingEtaText}>Priority Queue</Text>
+            </View>
           </View>
+
+          <Text style={styles.partnerPendingTitle}>Application Pending Under Review</Text>
           <Text style={styles.partnerPendingBody}>
-            Your business registration and Aadhaar address proof are currently being verified by the UtsavHub Trust & Safety team. Verification turnaround is typically 12–24 hours.
+            Your business registration documents and address proof have been received and are being verified by the UtsavHub Trust & Safety Team. Call our partner desk now to notify the verification team.
           </Text>
-          <View style={styles.partnerPendingActionRow}>
+
+          <View style={styles.partnerPendingActionStack}>
             <TouchableOpacity
-              style={styles.partnerWaBtn}
+              style={styles.partnerCallDeskBtn}
               onPress={() => {
-                const url = 'whatsapp://send?phone=919848012345&text=Hi%20UtsavHub%20Admin%2C%20inquiring%20about%20my%20vendor%20partner%20verification.';
-                Linking.openURL(url).catch(() => Linking.openURL('https://wa.me/919848012345'));
+                const phone = '18004259988';
+                Linking.openURL(`tel:${phone}`).catch(() => Linking.openURL('tel:919848012345'));
               }}
-              activeOpacity={0.8}
+              activeOpacity={0.88}
             >
-              <MessageCircle size={13} color="#FFFFFF" />
-              <Text style={styles.partnerWaBtnText}>WhatsApp Admin</Text>
+              <Phone size={15} color="#C5A059" />
+              <Text style={styles.partnerCallDeskBtnText}>Call UtsavHub Team to Notify</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.partnerSimulateBtn}
-              onPress={async () => {
-                if (!currentUser) return;
-                const createdBiz = await approveVendorApplicationAndCreateBusiness(currentUser);
-                await updateProfile({
-                  role: 'vendor',
-                  vendorApplicationStatus: 'approved',
-                  businessId: createdBiz?.id,
-                  businessName: createdBiz?.name || currentUser.businessName,
-                });
-                switchRole();
-              }}
-              activeOpacity={0.8}
-            >
-              <CheckCircle2 size={13} color="#059669" />
-              <Text style={styles.partnerSimulateBtnText}>Verify & Approve (Admin)</Text>
-            </TouchableOpacity>
+            <View style={styles.partnerPendingSecondaryRow}>
+              <TouchableOpacity
+                style={styles.partnerWaBtn}
+                onPress={() => {
+                  const url = 'whatsapp://send?phone=919848012345&text=Namaste%20UtsavHub%20Admin%2C%20I%20have%20submitted%20my%20vendor%20partner%20application%20and%20would%20like%20to%20notify%20the%20onboarding%20team.';
+                  Linking.openURL(url).catch(() => Linking.openURL('https://wa.me/919848012345'));
+                }}
+                activeOpacity={0.8}
+              >
+                <MessageCircle size={14} color="#059669" />
+                <Text style={styles.partnerWaBtnText}>WhatsApp Desk</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.partnerSimulateBtn}
+                onPress={async () => {
+                  if (!currentUser) return;
+                  const createdBiz = await approveVendorApplicationAndCreateBusiness(currentUser);
+                  await updateProfile({
+                    role: 'vendor',
+                    vendorApplicationStatus: 'approved',
+                    businessId: createdBiz?.id,
+                    businessName: createdBiz?.name || currentUser.businessName,
+                  });
+                  switchRole();
+                }}
+                activeOpacity={0.8}
+              >
+                <CheckCircle2 size={14} color="#059669" />
+                <Text style={styles.partnerSimulateBtnText}>Instant Approve (Demo)</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -1566,6 +1588,169 @@ const styles = StyleSheet.create({
     fontFamily: THEME.fonts.bold,
     fontSize: 11.5,
     color: '#FFFFFF',
+  },
+  partnerPendingCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#F3E8D0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  partnerPendingTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  partnerPendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  partnerPendingBadgeText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 10,
+    color: '#B45309',
+    letterSpacing: 0.7,
+  },
+  partnerPendingEtaBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+  },
+  partnerPendingEtaText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 10.5,
+    color: '#475569',
+  },
+  partnerPendingTitle: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 16.5,
+    color: '#0B0B0E',
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  partnerPendingBody: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: '#52505C',
+    marginBottom: 16,
+  },
+  partnerPendingActionStack: {
+    gap: 9,
+  },
+  partnerCallDeskBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0B0B0E',
+    paddingVertical: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#C5A059',
+  },
+  partnerCallDeskBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 13,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  partnerPendingSecondaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  partnerWaBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    paddingVertical: 10,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  partnerWaBtnText: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 11.5,
+    color: '#15803D',
+  },
+  partnerSimulateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FAF6ED',
+    paddingVertical: 10,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 160, 89, 0.4)',
+  },
+  partnerSimulateBtnText: {
+    fontFamily: THEME.fonts.semiBold,
+    fontSize: 11,
+    color: '#92400E',
+  },
+  partnerApprovedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    gap: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  partnerApprovedTitle: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11.5,
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  partnerApprovedSub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 11.5,
+    color: '#475569',
+    marginTop: 2,
+  },
+  partnerApprovedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#C5A059',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  partnerApprovedBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 11.5,
+    color: '#0B0B0E',
   },
   section: {
     paddingHorizontal: 16,

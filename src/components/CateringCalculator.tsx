@@ -128,8 +128,13 @@ export default function CateringCalculator({
                 <Text style={styles.pkgPrice}>
                   ₹{Number(pkg.price_per_plate || 450).toLocaleString('en-IN')} <Text style={styles.pkgPriceSub}>/ plate</Text>
                 </Text>
-                <View style={styles.negotiableTag}>
-                  <Text style={styles.negotiableTagText}>Negotiable</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9.5, color: '#1D4ED8', fontWeight: '700' }}>Min {pkg.min_guest_count || 100} plates</Text>
+                  </View>
+                  <View style={styles.negotiableTag}>
+                    <Text style={styles.negotiableTagText}>Negotiable</Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>

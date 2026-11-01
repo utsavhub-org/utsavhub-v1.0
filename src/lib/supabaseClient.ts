@@ -1879,6 +1879,7 @@ export interface NewOfferingInput {
   flower_type?: string;
   diet_type?: 'veg' | 'non_veg' | 'mixed';
   price: number;
+  min_guest_count?: number;
   menu_highlights?: string[];
   deliverables?: string[];
   duration?: string;
@@ -1918,7 +1919,7 @@ export async function addVendorOffering(
           diet_type: offering.diet_type || 'veg',
           service_type: 'buffet',
           price_per_plate: offering.price,
-          min_guest_count: 100,
+          min_guest_count: offering.min_guest_count || 100,
           menu_highlights: offering.menu_highlights && offering.menu_highlights.length > 0
             ? offering.menu_highlights
             : ['Special Andhra Sweets', 'Paneer Butter Masala', 'Dum Biryani'],
@@ -2000,7 +2001,7 @@ export async function addVendorOffering(
         package_name: offering.title,
         package_type: offering.diet_type || 'veg',
         price_per_plate: offering.price,
-        min_guest_count: 100,
+        min_guest_count: offering.min_guest_count || 100,
         menu_highlights: offering.menu_highlights || ['Special Feast', 'Pure Ghee Sweets'],
         menu_pdf_url: '',
         is_negotiable: true,

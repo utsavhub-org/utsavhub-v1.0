@@ -22,20 +22,28 @@ export default function ListingCard({
 }: ListingCardProps) {
   const vSpecs = business.venue_details;
   const cPackages = business.catering_packages;
-  const dCatalogues = business.decor_catalogues;
+  const dCatalogues = business.decor_items || business.decor_catalogues;
+  const pPackages = business.photography_packages;
+  const djPackages = business.dj_sound_packages;
 
   const priceString =
     business.category === 'venue'
       ? `₹${(vSpecs?.base_rental_price || 175000).toLocaleString('en-IN')}`
       : business.category === 'catering'
       ? `₹${(cPackages?.[0]?.price_per_plate || 450).toLocaleString('en-IN')}`
-      : `₹${(dCatalogues?.[0]?.base_price || 140000).toLocaleString('en-IN')}`;
+      : business.category === 'photography'
+      ? `₹${(pPackages?.[0]?.base_price || 45000).toLocaleString('en-IN')}`
+      : business.category === 'dj_sound'
+      ? `₹${(djPackages?.[0]?.base_price || 25000).toLocaleString('en-IN')}`
+      : `₹${(dCatalogues?.[0]?.base_price || 65000).toLocaleString('en-IN')}`;
 
   const priceUnit =
     business.category === 'venue'
       ? ' / day'
       : business.category === 'catering'
       ? ' / plate'
+      : business.category === 'photography'
+      ? ' / package'
       : ' / setup';
 
   return (
@@ -74,6 +82,8 @@ export default function ListingCard({
             {business.category === 'venue' && 'CONVENTION HALL'}
             {business.category === 'catering' && 'CATERING'}
             {business.category === 'decoration' && 'DECOR'}
+            {business.category === 'photography' && 'PHOTOGRAPHY'}
+            {business.category === 'dj_sound' && 'DJ & SOUND'}
           </Text>
         </View>
       </View>
@@ -101,7 +111,25 @@ export default function ListingCard({
 
         {cPackages && cPackages.length > 0 && (
           <Text style={styles.specsText} numberOfLines={1}>
-            Veg: ₹{cPackages[0].price_per_plate} · Non-Veg: ₹{cPackages[1]?.price_per_plate || 750} per plate
+            ₹{cPackages[0].price_per_plate}/plate · Min {cPackages[0].min_guest_count || 100} plates · {cPackages[0].package_name}
+          </Text>
+        )}
+
+        {dCatalogues && dCatalogues.length > 0 && (
+          <Text style={styles.specsText} numberOfLines={1}>
+            {dCatalogues[0].element_type ? dCatalogues[0].element_type.replace('_', ' ').toUpperCase() + ' · ' : ''}{dCatalogues[0].title}{dCatalogues[0].dimensions ? ` (${dCatalogues[0].dimensions})` : ''}
+          </Text>
+        )}
+
+        {pPackages && pPackages.length > 0 && (
+          <Text style={styles.specsText} numberOfLines={1}>
+            {pPackages[0].title} · {pPackages[0].crew_count || '3 Pros'} · {pPackages[0].duration || 'Full Day'}
+          </Text>
+        )}
+
+        {djPackages && djPackages.length > 0 && (
+          <Text style={styles.specsText} numberOfLines={1}>
+            {djPackages[0].title} · {djPackages[0].power_output_watts || '10,000W RMS'}
           </Text>
         )}
 
