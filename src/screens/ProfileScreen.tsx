@@ -121,14 +121,9 @@ export default function ProfileScreen({
   // Form Fields
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formRole, setFormRole] = useState<UserRole>('customer');
   const [formCity, setFormCity] = useState('Visakhapatnam');
   const [formArea, setFormArea] = useState('');
   const [formAvatar, setFormAvatar] = useState('');
-  const [formWeddingDate, setFormWeddingDate] = useState('2026-11-20');
-  const [formPartnerName, setFormPartnerName] = useState('');
-  const [formBusinessName, setFormBusinessName] = useState('');
-  const [formBusinessCategory, setFormBusinessCategory] = useState<BusinessCategory>('venue');
 
   // Real Dynamic Counts for User
   const [bookingCount, setBookingCount] = useState<number>(0);
@@ -323,23 +318,14 @@ export default function ProfileScreen({
     loadStats();
   }, [currentUser]);
 
-  // Auto prompt setup modal if newly signed in with incomplete profile
+  // Synchronize form fields when user profile changes (NO auto popup)
   useEffect(() => {
     if (currentUser) {
       setFormName(currentUser.name || '');
       setFormPhone(currentUser.phone || '');
-      setFormRole(currentUser.role || 'customer');
       setFormCity(currentUser.selectedCity || 'Visakhapatnam');
       setFormArea(currentUser.area_locality || '');
       setFormAvatar(currentUser.avatar_url || PRESET_AVATARS[0].url);
-      setFormWeddingDate(currentUser.weddingDate || '2026-11-20');
-      setFormPartnerName(currentUser.partnerName || '');
-      setFormBusinessName(currentUser.businessName || '');
-      setFormBusinessCategory(currentUser.businessCategory || 'venue');
-
-      if (currentUser.isProfileComplete === false || !currentUser.name) {
-        setIsEditModalOpen(true);
-      }
     }
   }, [currentUser]);
 
@@ -413,14 +399,9 @@ export default function ProfileScreen({
     const success = await updateProfile({
       name: formName.trim(),
       phone: formPhone.trim(),
-      role: formRole,
       selectedCity: formCity,
       area_locality: formArea.trim(),
       avatar_url: formAvatar.trim() || PRESET_AVATARS[0].url,
-      weddingDate: formWeddingDate.trim(),
-      partnerName: formPartnerName.trim(),
-      businessName: formBusinessName.trim(),
-      businessCategory: formBusinessCategory,
       isProfileComplete: true,
     });
 
@@ -525,8 +506,7 @@ export default function ProfileScreen({
 
         <Text style={styles.userName}>{currentUser.name || 'Telugu Family'}</Text>
         <Text style={styles.userSub}>
-          {currentUser.selectedCity || 'Visakhapatnam'}
-          {currentUser.weddingDate ? ` · Muhurtham in ${currentUser.weddingDate}` : ''}
+          {currentUser.area_locality ? `${currentUser.area_locality}, ` : ''}{currentUser.selectedCity || 'Visakhapatnam'}
         </Text>
 
         {/* Verification Status Badge */}
@@ -708,7 +688,7 @@ export default function ProfileScreen({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.menuTitle}>Saved Wishlist</Text>
-            <Text style={styles.menuSub}>3 Halls & Mandapams favorited</Text>
+            <Text style={styles.menuSub}>{wishlistCount} items favorited</Text>
           </View>
           <ChevronRight size={16} color={THEME.colors.textMuted} />
         </TouchableOpacity>
@@ -723,7 +703,7 @@ export default function ProfileScreen({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.menuTitle}>Active Holds & Bookings</Text>
-            <Text style={styles.menuSub}>2 auspicious dates locked</Text>
+            <Text style={styles.menuSub}>{bookingCount} active holds & inquiries</Text>
           </View>
           <ChevronRight size={16} color={THEME.colors.textMuted} />
         </TouchableOpacity>
@@ -991,53 +971,7 @@ export default function ProfileScreen({
                 </View>
               </View>
 
-              {/* Role Toggle */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Account Type</Text>
-                <View style={styles.roleToggleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleToggleBtn,
-                      formRole === 'customer' && styles.roleToggleBtnActive,
-                    ]}
-                    onPress={() => setFormRole('customer')}
-                  >
-                    <User
-                      size={15}
-                      color={formRole === 'customer' ? '#FFFFFF' : '#64748B'}
-                    />
-                    <Text
-                      style={[
-                        styles.roleToggleText,
-                        formRole === 'customer' && styles.roleToggleTextActive,
-                      ]}
-                    >
-                      Customer (Family)
-                    </Text>
-                  </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.roleToggleBtn,
-                      formRole === 'vendor' && styles.roleToggleBtnActive,
-                    ]}
-                    onPress={() => setFormRole('vendor')}
-                  >
-                    <Briefcase
-                      size={15}
-                      color={formRole === 'vendor' ? '#FFFFFF' : '#64748B'}
-                    />
-                    <Text
-                      style={[
-                        styles.roleToggleText,
-                        formRole === 'vendor' && styles.roleToggleTextActive,
-                      ]}
-                    >
-                      Vendor Partner
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
 
               {/* Destination City Selection with GPS Auto-Detect */}
               <View style={styles.inputGroup}>
@@ -1110,78 +1044,7 @@ export default function ProfileScreen({
                 />
               </View>
 
-              {/* Customer Specific Fields */}
-              {formRole === 'customer' && (
-                <>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Partner / Spouse Name</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={formPartnerName}
-                      onChangeText={setFormPartnerName}
-                      placeholder="e.g. Rahul"
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Wedding Date / Muhurtham</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={formWeddingDate}
-                      onChangeText={setFormWeddingDate}
-                      placeholder="YYYY-MM-DD or Month Year"
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
-                </>
-              )}
-
-              {/* Vendor Specific Fields */}
-              {formRole === 'vendor' && (
-                <>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Business / Hall Name</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={formBusinessName}
-                      onChangeText={setFormBusinessName}
-                      placeholder="e.g. Grand Swarna Palace Convention Hall"
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Business Category</Text>
-                    <View style={styles.categoryPillsRow}>
-                      {(['venue', 'catering', 'decoration', 'photography'] as BusinessCategory[]).map(
-                        (cat) => {
-                          const isSelected = formBusinessCategory === cat;
-                          return (
-                            <TouchableOpacity
-                              key={cat}
-                              style={[
-                                styles.catPill,
-                                isSelected && styles.catPillActive,
-                              ]}
-                              onPress={() => setFormBusinessCategory(cat)}
-                            >
-                              <Text
-                                style={[
-                                  styles.catPillText,
-                                  isSelected && styles.catPillTextActive,
-                                ]}
-                              >
-                                {cat.toUpperCase()}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        }
-                      )}
-                    </View>
-                  </View>
-                </>
-              )}
 
               {/* Save Button */}
               <TouchableOpacity

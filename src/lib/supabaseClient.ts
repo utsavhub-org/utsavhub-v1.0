@@ -131,23 +131,19 @@ export async function syncUserProfileToSupabase(profile: UserProfile): Promise<b
   try {
     const payload = {
       id: profile.id,
-      phone: profile.phone,
+      phone: profile.phone || null,
       full_name: profile.name,
-      role: profile.role,
+      role: profile.role || 'customer',
       city: profile.selectedCity || 'Visakhapatnam',
       area_locality: profile.area_locality || null,
       avatar_url: profile.avatar_url || null,
-      wedding_date: profile.weddingDate || null,
-      partner_name: profile.partnerName || null,
-      business_name: profile.businessName || null,
-      business_category: profile.businessCategory || null,
       is_profile_complete: profile.isProfileComplete ?? true,
       updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase
       .from('user_profiles')
-      .upsert(payload, { onConflict: 'phone' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
       console.warn('Notice syncing user_profiles table (table may need creation in SQL editor):', error.message);
@@ -232,9 +228,22 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
         `);
 
       if (!error && dbData && dbData.length > 0) {
+        let photoRows: any[] = [];
+        let djRows: any[] = [];
+        try {
+          const [pRes, dRes] = await Promise.all([
+            supabase.from('photography_packages').select('*'),
+            supabase.from('dj_sound_packages').select('*'),
+          ]);
+          if (pRes?.data) photoRows = pRes.data;
+          if (dRes?.data) djRows = dRes.data;
+        } catch (e) {}
+
         const mapped: Business[] = dbData.map((b: any) => {
           const v = Array.isArray(b.vendors) ? b.vendors[0] : b.vendors;
           const vd = Array.isArray(b.venue_details) ? b.venue_details[0] : b.venue_details;
+          const photoPkgs = photoRows.filter((p: any) => p.business_id === b.id);
+          const djPkgs = djRows.filter((d: any) => d.business_id === b.id);
           return {
             id: b.id,
             name: b.name,
@@ -247,9 +256,16 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
             gallery_images: b.gallery_images || [],
             rating_avg: v?.rating_avg ? Number(v.rating_avg) : 4.8,
             review_count: v?.review_count || 12,
-            phone: v?.phone || '+91 98480 12345',
-            whatsapp_number: v?.whatsapp_number || '+91 98480 12345',
+            phone: v?.phone || '',
+            whatsapp_number: v?.whatsapp_number || '',
             is_verified: v?.is_verified ?? true,
+            starting_price:
+              vd?.base_rental_price ||
+              (b.decor_items?.[0]?.base_price) ||
+              (b.catering_packages?.[0]?.price_per_plate) ||
+              (photoPkgs?.[0]?.price) ||
+              (djPkgs?.[0]?.price) ||
+              50000,
             venue_details: vd
               ? {
                   id: vd.id,
@@ -266,16 +282,14 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
               : undefined,
             decor_items: b.decor_items || [],
             catering_packages: b.catering_packages || [],
-            photography_packages: b.photography_packages || [],
-            dj_sound_packages: b.dj_sound_packages || [],
+            photography_packages: photoPkgs,
+            dj_sound_packages: djPkgs,
             media_reels: b.media_reels || [],
           };
         });
 
-        // Merge with other mock business categories (e.g. Photography, Decor) if not yet added to Supabase
-        const existingIds = new Set(mapped.map((m) => m.id));
-        const others = MOCK_BUSINESSES.filter((m) => !existingIds.has(m.id));
-        results = [...mapped, ...others];
+        // Use live businesses directly from Supabase server
+        results = mapped;
       }
     } catch (err) {
       console.warn('Supabase fetch error, fallback to mock:', err);
