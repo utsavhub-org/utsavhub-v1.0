@@ -50,6 +50,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import VendorDashboardScreen from './VendorDashboardScreen';
 import VendorRegistrationScreen from './VendorRegistrationScreen';
+import AdminDashboardScreen from './AdminDashboardScreen';
 import { THEME } from '../theme/colors';
 import { BusinessCategory, UserRole, Review, SupportMessage } from '../types';
 import {
@@ -110,7 +111,7 @@ export default function ProfileScreen({
   onNavigateToExplore,
   onSelectVendor,
 }: ProfileScreenProps) {
-  const { currentUser, userRole, switchRole, openAuthModal, logout, updateProfile } = useAuth();
+  const { currentUser, userRole, switchRole, openAuthModal, logout, updateProfile, loginAsAdmin } = useAuth();
   const [showVendorRegistration, setShowVendorRegistration] = useState(false);
 
   // Profile Edit Modal State
@@ -347,6 +348,15 @@ export default function ProfileScreen({
           >
             <Text style={styles.signInPrimaryBtnText}>Sign In with Google, Phone or Email</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.adminLoginSecondaryBtn}
+            onPress={loginAsAdmin}
+            activeOpacity={0.8}
+          >
+            <ShieldCheck size={16} color="#d4af37" style={{ marginRight: 6 }} />
+            <Text style={styles.adminLoginSecondaryText}>Platform Admin Verification Console</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -367,7 +377,19 @@ export default function ProfileScreen({
     );
   }
 
-  if (userRole === 'vendor') {
+  if (userRole === 'admin' || currentUser.role === 'admin') {
+    return (
+      <AdminDashboardScreen
+        onSwitchToCustomer={switchRole}
+        onLogout={logout}
+        onPreviewBusiness={(bizId) => {
+          if (onSelectVendor) onSelectVendor(bizId);
+        }}
+      />
+    );
+  }
+
+  if (userRole === 'vendor' && currentUser.vendorApplicationStatus !== 'pending_verification') {
     return (
       <VendorDashboardScreen
         onSwitchToCustomer={switchRole}
@@ -638,7 +660,7 @@ export default function ProfileScreen({
 
             <View style={styles.partnerPendingSecondaryRow}>
               <TouchableOpacity
-                style={styles.partnerWaBtn}
+                style={[styles.partnerWaBtn, { flex: 1 }]}
                 onPress={() => {
                   const url = 'whatsapp://send?phone=919848012345&text=Namaste%20UtsavHub%20Admin%2C%20I%20have%20submitted%20my%20vendor%20partner%20application%20and%20would%20like%20to%20notify%20the%20onboarding%20team.';
                   Linking.openURL(url).catch(() => Linking.openURL('https://wa.me/919848012345'));
@@ -646,26 +668,7 @@ export default function ProfileScreen({
                 activeOpacity={0.8}
               >
                 <MessageCircle size={14} color="#059669" />
-                <Text style={styles.partnerWaBtnText}>WhatsApp Desk</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.partnerSimulateBtn}
-                onPress={async () => {
-                  if (!currentUser) return;
-                  const createdBiz = await approveVendorApplicationAndCreateBusiness(currentUser);
-                  await updateProfile({
-                    role: 'vendor',
-                    vendorApplicationStatus: 'approved',
-                    businessId: createdBiz?.id,
-                    businessName: createdBiz?.name || currentUser.businessName,
-                  });
-                  switchRole();
-                }}
-                activeOpacity={0.8}
-              >
-                <CheckCircle2 size={14} color="#059669" />
-                <Text style={styles.partnerSimulateBtnText}>Instant Approve (Demo)</Text>
+                <Text style={styles.partnerWaBtnText}>WhatsApp Verification Desk</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1857,6 +1860,24 @@ const styles = StyleSheet.create({
     fontFamily: THEME.fonts.bold,
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  adminLoginSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  },
+  adminLoginSecondaryText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 12,
+    color: '#d4af37',
+    letterSpacing: 0.3,
   },
 
   /* Modal Styles */

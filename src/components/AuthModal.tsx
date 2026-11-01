@@ -52,6 +52,7 @@ export default function AuthModal() {
     loginWithPhone,
     loginWithGoogle,
     loginWithEmailPassword,
+    loginAsAdmin,
     navigateTo,
   } = useAuth();
 
@@ -521,7 +522,7 @@ export default function AuthModal() {
                     selectedRole === 'customer' && styles.roleTabTextActive,
                   ]}
                 >
-                  Family / Customer
+                  Customer
                 </Text>
               </TouchableOpacity>
 
@@ -543,10 +544,55 @@ export default function AuthModal() {
                     selectedRole === 'vendor' && styles.roleTabTextActive,
                   ]}
                 >
-                  Vendor Partner
+                  Vendor
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.roleTab,
+                  selectedRole === 'admin' && styles.roleTabActive,
+                ]}
+                onPress={() => setSelectedRole('admin')}
+                activeOpacity={0.8}
+              >
+                <ShieldCheck
+                  size={15}
+                  color={selectedRole === 'admin' ? '#FFFFFF' : '#64748B'}
+                />
+                <Text
+                  style={[
+                    styles.roleTabText,
+                    selectedRole === 'admin' && styles.roleTabTextActive,
+                  ]}
+                >
+                  Admin
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Admin Direct Access Panel */}
+            {selectedRole === 'admin' && (
+              <View style={styles.adminDirectCard}>
+                <View style={styles.adminDirectIconWrap}>
+                  <ShieldCheck size={28} color="#C5A059" />
+                </View>
+                <Text style={styles.adminDirectTitle}>Platform Admin Console</Text>
+                <Text style={styles.adminDirectSub}>
+                  Review customer vendor partner applications, verify KYC proofs, approve tariffs, and manage live stores in Supabase.
+                </Text>
+                <TouchableOpacity
+                  style={styles.adminDirectBtn}
+                  onPress={async () => {
+                    await loginAsAdmin();
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.adminDirectBtnText}>Enter Admin Dashboard</Text>
+                  <ArrowRight size={16} color="#0B0B0E" />
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Error or Success Feedback Banner */}
             {errorMessage && (
@@ -563,15 +609,17 @@ export default function AuthModal() {
               </View>
             )}
 
-            {/* ------------------------------------------------------------- */}
-            {/* CONTINUING WITH GOOGLE                                         */}
-            {/* ------------------------------------------------------------- */}
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              activeOpacity={0.85}
-            >
+            {selectedRole !== 'admin' && (
+              <>
+                {/* ------------------------------------------------------------- */}
+                {/* CONTINUING WITH GOOGLE                                         */}
+                {/* ------------------------------------------------------------- */}
+                <TouchableOpacity
+                  style={styles.googleBtn}
+                  onPress={handleGoogleSignIn}
+                  disabled={isLoading}
+                  activeOpacity={0.85}
+                >
               <Svg width={20} height={20} viewBox="0 0 24 24">
                 <Path
                   fill="#4285F4"
@@ -895,6 +943,8 @@ export default function AuthModal() {
                 </TouchableOpacity>
               </View>
             )}
+              </>
+            )}
 
             {/* Bottom Security Footer */}
             <View style={styles.securityFooter}>
@@ -903,6 +953,18 @@ export default function AuthModal() {
                 256-Bit SSL Secured · Your phone number & credentials are encrypted
               </Text>
             </View>
+
+            {/* Platform Admin Console Link */}
+            <TouchableOpacity
+              style={styles.adminConsoleRow}
+              onPress={async () => {
+                await loginAsAdmin();
+              }}
+              activeOpacity={0.8}
+            >
+              <ShieldCheck size={13} color="#C5A059" />
+              <Text style={styles.adminConsoleLinkText}>Platform Admin Verification Console</Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -1298,6 +1360,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#C5A059',
     textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
+  adminDirectCard: {
+    backgroundColor: '#FAF5EE',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#E6D2A8',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  adminDirectIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#C5A059',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  adminDirectTitle: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 16,
+    color: '#0B0B0E',
+    marginBottom: 6,
+  },
+  adminDirectSub: {
+    fontFamily: THEME.fonts.regular,
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  adminDirectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#C5A059',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  adminDirectBtnText: {
+    fontFamily: THEME.fonts.bold,
+    fontSize: 13,
+    color: '#0B0B0E',
+  },
+  adminConsoleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 6,
+  },
+  adminConsoleLinkText: {
+    fontFamily: THEME.fonts.medium,
+    fontSize: 11.5,
+    color: '#8A723D',
     textDecorationLine: 'underline',
   },
 });

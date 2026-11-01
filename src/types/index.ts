@@ -146,7 +146,7 @@ export interface AvailabilitySlot {
   is_booked: boolean;
 }
 
-export type UserRole = 'customer' | 'vendor';
+export type UserRole = 'customer' | 'vendor' | 'admin';
 
 export interface UserProfile {
   id: string;

@@ -34,6 +34,7 @@ interface AuthContextType {
     fullName?: string,
     role?: UserRole
   ) => Promise<UserProfile>;
+  loginAsAdmin: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   logout: () => Promise<void>;
   switchRole: () => void;
@@ -212,6 +213,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await syncUserProfileToSupabase(finalProfile);
   };
 
+  // Administrator login
+  const loginAsAdmin = async () => {
+    const adminProfile: UserProfile = {
+      id: 'usr-admin-1',
+      name: 'UtsavHub Administrator',
+      email: 'admin@utsavhub.com',
+      phone: '+91 98480 00000',
+      role: 'admin',
+      selectedCity: 'Visakhapatnam',
+      isProfileComplete: true,
+      isEmailVerified: true,
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+    };
+    setCurrentUser(adminProfile);
+    setIsAuthModalVisible(false);
+    await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(adminProfile));
+    if (navHandler) {
+      navHandler('profile', 'profile');
+    }
+  };
+
   // Real phone OTP sign in
   const loginWithPhone = async (
     phone: string,
@@ -378,9 +400,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchRole = () => {
     if (!currentUser) return;
-    if (userRole === 'customer') {
-      // Only permit switching to vendor if user is approved partner
-      if (currentUser.role === 'vendor' || currentUser.vendorApplicationStatus === 'approved') {
+    if (userRole === 'admin') {
+      updateProfile({ role: 'customer' });
+    } else if (userRole === 'customer') {
+      if (currentUser.id === 'usr-admin-1' || currentUser.email === 'admin@utsavhub.com') {
+        updateProfile({ role: 'admin' });
+      } else if (currentUser.role === 'vendor' || currentUser.vendorApplicationStatus === 'approved') {
         updateProfile({ role: 'vendor' });
       }
     } else {
@@ -399,6 +424,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoggedIn,
         isLoadingAuth,
         loginAs,
+        loginAsAdmin,
         loginWithPhone,
         loginWithGoogle,
         loginWithEmailPassword,

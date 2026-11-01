@@ -317,17 +317,15 @@ export async function getFilteredBusinesses(filters: FilterParams): Promise<{
           };
         });
 
-        // Use live businesses directly from Supabase server
-        results = mapped;
+        // Use live active businesses directly from Supabase server (NO FAKE / MOCK DATA)
+        results = mapped.filter((b) => b.is_active !== false);
       }
     } catch (err) {
-      console.warn('Supabase fetch error, fallback to mock:', err);
+      console.warn('Supabase fetch error:', err);
     }
   }
 
-  if (results.length === 0) {
-    results = [...MOCK_BUSINESSES];
-  }
+  // Pure server data: No fallback to MOCK_BUSINESSES
 
   if (filters.location && filters.location.trim().length > 0) {
     const loc = filters.location.toLowerCase();
@@ -437,24 +435,23 @@ export async function getBusinessById(id: string): Promise<Business | null> {
       if (!error && data) {
         const v = Array.isArray(data.vendors) ? data.vendors[0] : data.vendors;
         const vd = Array.isArray(data.venue_details) ? data.venue_details[0] : data.venue_details;
-        const mockMatch = MOCK_BUSINESSES.find((m) => m.name === data.name || m.id === data.id);
 
         return {
           id: data.id,
           name: data.name,
           category: data.category,
-          city: v?.city || mockMatch?.city || 'Visakhapatnam',
-          area_locality: v?.area_locality || mockMatch?.area_locality || 'Madhurawada',
-          latitude: mockMatch?.latitude || 17.72,
-          longitude: mockMatch?.longitude || 83.31,
-          cover_image_url: data.cover_image_url || mockMatch?.cover_image_url,
-          gallery_images: data.gallery_images && data.gallery_images.length > 0 ? data.gallery_images : (mockMatch?.gallery_images || []),
-          rating_avg: v?.rating_avg ? Number(v.rating_avg) : (mockMatch?.rating_avg || 4.8),
-          review_count: v?.review_count || mockMatch?.review_count || 18,
-          phone: v?.phone || mockMatch?.phone || '+91 98480 12345',
-          whatsapp_number: v?.whatsapp_number || mockMatch?.whatsapp_number || '919848012345',
+          city: v?.city || 'Visakhapatnam',
+          area_locality: v?.area_locality || 'Madhurawada',
+          latitude: 17.72,
+          longitude: 83.31,
+          cover_image_url: data.cover_image_url,
+          gallery_images: data.gallery_images && data.gallery_images.length > 0 ? data.gallery_images : [data.cover_image_url],
+          rating_avg: v?.rating_avg ? Number(v.rating_avg) : 5.0,
+          review_count: v?.review_count || 0,
+          phone: v?.phone || '',
+          whatsapp_number: v?.whatsapp_number || v?.phone || '',
           is_verified: v?.is_verified ?? true,
-          starting_price: data.starting_price ? Number(data.starting_price) : mockMatch?.starting_price,
+          starting_price: data.starting_price ? Number(data.starting_price) : (vd?.base_rental_price || 50000),
           venue_details: vd
             ? {
                 id: vd.id,
@@ -462,13 +459,13 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 is_ac: vd.is_ac ?? true,
                 seating_capacity: vd.seating_capacity || 600,
                 floating_capacity: vd.floating_capacity || 1200,
-                ac_rooms_count: vd.ac_rooms_count || 8,
+                ac_rooms_count: vd.ac_rooms_count || 6,
                 parking_capacity_cars: vd.parking_cars || 100,
                 outside_catering_allowed: vd.outside_catering_allowed ?? true,
                 base_rental_price: Number(vd.base_rental_price || 175000),
                 power_backup_kva: vd.power_backup_kva || 125,
               }
-            : mockMatch?.venue_details,
+            : undefined,
           decor_items: data.decor_items && data.decor_items.length > 0
             ? data.decor_items.map((di: any) => ({
                 ...di,
@@ -477,8 +474,8 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 base_price: Number(di.base_price || 0),
                 sample_images: Array.isArray(di.sample_images) ? di.sample_images : [],
               }))
-            : (mockMatch?.decor_items || []),
-          decor_catalogues: mockMatch?.decor_catalogues || [],
+            : [],
+          decor_catalogues: [],
           catering_packages: data.catering_packages && data.catering_packages.length > 0
             ? data.catering_packages.map((cp: any) => ({
                 ...cp,
@@ -486,9 +483,9 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 price_per_plate: Number(cp.price_per_plate || 450),
                 is_negotiable: cp.is_negotiable ?? true,
               }))
-            : (mockMatch?.catering_packages || []),
-          catering_addons: mockMatch?.catering_addons || [],
-          catering_items: mockMatch?.catering_items || [],
+            : [],
+          catering_addons: [],
+          catering_items: [],
           photography_packages: photoPackages.length > 0
             ? photoPackages.map((pp: any) => ({
                 ...pp,
@@ -496,7 +493,7 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 is_negotiable: pp.is_negotiable ?? true,
                 deliverables: Array.isArray(pp.deliverables) ? pp.deliverables : [],
               }))
-            : (mockMatch?.photography_packages || []),
+            : [],
           dj_sound_packages: djPackages.length > 0
             ? djPackages.map((dp: any) => ({
                 ...dp,
@@ -504,9 +501,9 @@ export async function getBusinessById(id: string): Promise<Business | null> {
                 is_negotiable: dp.is_negotiable ?? true,
                 equipment_included: Array.isArray(dp.equipment_included) ? dp.equipment_included : [],
               }))
-            : (mockMatch?.dj_sound_packages || []),
-          media_reels: data.media_reels && data.media_reels.length > 0 ? data.media_reels : (mockMatch?.media_reels || []),
-          availability_calendar: mockMatch?.availability_calendar || [],
+            : [],
+          media_reels: data.media_reels && data.media_reels.length > 0 ? data.media_reels : [],
+          availability_calendar: [],
         };
       }
     } catch (err) {
@@ -514,8 +511,8 @@ export async function getBusinessById(id: string): Promise<Business | null> {
     }
   }
 
-  const found = MOCK_BUSINESSES.find((b) => b.id === id);
-  return found || null;
+  // Pure database: return null if not in database
+  return null;
 }
 
 export async function createBookingInquiry(
@@ -1561,18 +1558,26 @@ export async function getVendorBusinesses(user: UserProfile | string | null): Pr
     ? { id: user, phone: user, role: 'vendor', isProfileComplete: true }
     : user;
 
-  // Demo account: GM Narayana Rao for Grand Swarna Group
-  if (activeUser.id === 'usr-vend-1') {
-    return vendorBusinessesStore;
-  }
-  // Demo account: Chef Rambabu for Annapurna Royal Caterers
-  if (activeUser.id === 'usr-vend-2') {
-    return MOCK_BUSINESSES.filter((b) => b.id === '44444444-4444-4444-4444-444444444444');
+  if (activeUser.id === 'usr-vend-1' && !activeUser.businessId) {
+    activeUser.businessId = '11111111-1111-1111-1111-111111111111';
+  } else if (activeUser.id === 'usr-vend-2' && !activeUser.businessId) {
+    activeUser.businessId = '44444444-4444-4444-4444-444444444444';
   }
 
   // Live Supabase query for actual authenticated user
   if (supabase) {
     try {
+      if (!activeUser.businessId && activeUser.id) {
+        const { data: prof } = await supabase
+          .from('user_profiles')
+          .select('business_id')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+        if (prof?.business_id) {
+          activeUser.businessId = prof.business_id;
+        }
+      }
+
       const cleanPhone = activeUser.phone ? activeUser.phone.replace(/[^0-9]/g, '').slice(-10) : '';
       const cleanEmail = activeUser.email ? activeUser.email.trim().toLowerCase() : '';
 
@@ -1903,32 +1908,34 @@ export async function submitVendorApplication(
 
   try {
     if (supabase) {
-      await supabase.from('vendor_applications').insert({
-        user_id: user.id,
-        business_name: application.business_name,
-        primary_contact_name: application.primary_contact_name,
-        phone: application.phone,
-        whatsapp_number: application.whatsapp_number,
-        categories: application.categories,
-        address_line: application.address_line,
-        area_locality: application.area_locality,
-        city: application.city,
-        pincode: application.pincode,
-        id_proof_type: application.id_proof_type,
-        id_proof_last4: application.id_proof_last4,
-        id_proof_doc_url: application.id_proof_doc_url,
-        portfolio_images: application.portfolio_images,
-        base_starting_price: application.base_starting_price,
-        specs_notes: application.specs_notes,
-        status: 'pending_verification',
-      });
+      // 1. Create the business as inactive (pending admin approval)
+      const cat = application.categories[0] || 'decoration';
+      const coverUrl = application.portfolio_images?.[0] || CATEGORY_DEFAULT_IMAGES[cat] || CATEGORY_DEFAULT_IMAGES.decoration;
+      
+      const { data: newBiz } = await supabase
+        .from('businesses')
+        .insert({
+          name: application.business_name,
+          category: cat,
+          cover_image_url: coverUrl,
+          gallery_images: application.portfolio_images && application.portfolio_images.length > 0 ? application.portfolio_images : [coverUrl],
+          is_active: false, // Inactive until Admin verifies!
+          display_order: 99,
+        })
+        .select()
+        .single();
 
+      // 2. Update user profile to pending_verification (retains role customer until verified)
       await supabase.from('user_profiles').upsert({
         id: user.id,
         phone: user.phone || application.phone,
         full_name: application.primary_contact_name || user.name,
+        role: 'customer',
+        business_id: newBiz?.id,
         business_name: application.business_name,
-        business_category: application.categories[0],
+        business_category: cat,
+        city: application.city,
+        area_locality: application.area_locality,
         vendor_application_status: 'pending_verification',
         updated_at: new Date().toISOString(),
       });
@@ -1937,6 +1944,217 @@ export async function submitVendorApplication(
   } catch (e) {
     console.warn('Submit vendor application notice:', e);
     return true;
+  }
+}
+
+export async function getPendingVendorApplications(): Promise<any[]> {
+  const results: any[] = [];
+  const seenUserIds = new Set<string>();
+
+  // 1. Query Supabase user_profiles for pending applications
+  if (supabase) {
+    try {
+      const { data: pendingUsers } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .not('business_name', 'is', null)
+        .eq('role', 'customer');
+
+      if (pendingUsers && pendingUsers.length > 0) {
+        for (const u of pendingUsers) {
+          if (u.business_name && !seenUserIds.has(u.id)) {
+            seenUserIds.add(u.id);
+            results.push({
+              id: u.business_id || `app-${u.id}`,
+              userId: u.id,
+              businessId: u.business_id,
+              businessName: u.business_name,
+              category: (u.business_category as BusinessCategory) || 'decoration',
+              applicantName: u.full_name || 'Partner Applicant',
+              phone: u.phone || '+91 98480 12345',
+              city: u.city || 'Visakhapatnam',
+              locality: u.area_locality || 'Siripuram',
+              startingPrice: 50000,
+              idProofType: 'Aadhaar',
+              idProofLast4: (u.phone || '4892').slice(-4),
+              status: 'pending_verification',
+              createdAt: u.updated_at || u.created_at || new Date().toISOString(),
+            });
+          }
+        }
+      }
+
+      // Also check if any businesses are inactive
+      const { data: inactiveBiz } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('is_active', false);
+
+      if (inactiveBiz && inactiveBiz.length > 0) {
+        for (const b of inactiveBiz) {
+          if (!results.some((r) => r.businessId === b.id || r.businessName === b.name)) {
+            results.push({
+              id: b.id,
+              userId: b.vendor_id || b.id,
+              businessId: b.id,
+              businessName: b.name,
+              category: b.category,
+              applicantName: b.name,
+              phone: '+91 98480 12345',
+              city: 'Visakhapatnam',
+              locality: 'Madhurawada',
+              startingPrice: 50000,
+              idProofType: 'Aadhaar',
+              idProofLast4: '4892',
+              status: 'pending_verification',
+              createdAt: b.created_at,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('getPendingVendorApplications supabase notice:', e);
+    }
+  }
+
+  // 2. Merge local map
+  for (const [uid, app] of localVendorApplicationsMap.entries()) {
+    if (!seenUserIds.has(uid) && app.status === 'pending_verification') {
+      seenUserIds.add(uid);
+      results.push({
+        id: app.id,
+        userId: app.user_id,
+        businessName: app.business_name,
+        category: app.categories[0] || 'decoration',
+        applicantName: app.primary_contact_name,
+        phone: app.phone,
+        city: app.city,
+        locality: app.area_locality,
+        startingPrice: app.base_starting_price,
+        idProofType: app.id_proof_type,
+        idProofLast4: app.id_proof_last4,
+        status: 'pending_verification',
+        createdAt: app.created_at,
+      });
+    }
+  }
+
+  return results;
+}
+
+export async function verifyAndApprovePartner(
+  applicationId: string,
+  userId: string,
+  businessId?: string,
+  bizMeta?: any
+): Promise<boolean> {
+  try {
+    let resolvedBizId = businessId;
+
+    if (supabase) {
+      // 1. If business exists in businesses table, set is_active = true
+      if (businessId) {
+        const { data: existingB } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('id', businessId)
+          .maybeSingle();
+
+        if (existingB) {
+          await supabase
+            .from('businesses')
+            .update({ is_active: true })
+            .eq('id', businessId);
+        } else {
+          const cat = bizMeta?.category || 'decoration';
+          const coverUrl = CATEGORY_DEFAULT_IMAGES[cat] || CATEGORY_DEFAULT_IMAGES.decoration;
+          const { data: newB } = await supabase
+            .from('businesses')
+            .insert({
+              name: bizMeta?.businessName || 'Business',
+              category: cat,
+              cover_image_url: coverUrl,
+              gallery_images: [coverUrl],
+              is_active: true,
+              display_order: 1,
+            })
+            .select()
+            .single();
+          if (newB) resolvedBizId = newB.id;
+        }
+      } else if (bizMeta) {
+        // Create business in businesses table as active
+        const cat = bizMeta.category || 'decoration';
+        const coverUrl = CATEGORY_DEFAULT_IMAGES[cat] || CATEGORY_DEFAULT_IMAGES.decoration;
+        const { data: newB } = await supabase
+          .from('businesses')
+          .insert({
+            name: bizMeta.businessName,
+            category: cat,
+            cover_image_url: coverUrl,
+            gallery_images: [coverUrl],
+            is_active: true,
+            display_order: 1,
+          })
+          .select()
+          .single();
+        if (newB) resolvedBizId = newB.id;
+      }
+
+      // Also mark vendor row as verified if linked
+      await supabase
+        .from('vendors')
+        .update({ is_verified: true })
+        .eq('auth_user_id', userId);
+
+      // 2. Update user profile: role = 'vendor' & vendor_application_status = 'approved'
+      await supabase
+        .from('user_profiles')
+        .update({
+          role: 'vendor',
+          vendor_application_status: 'approved',
+          business_id: resolvedBizId,
+          business_name: bizMeta?.businessName,
+          business_category: bizMeta?.category,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+    }
+
+    // 3. Update local application map
+    const localApp = localVendorApplicationsMap.get(userId);
+    if (localApp) localApp.status = 'approved';
+
+    return true;
+  } catch (e) {
+    console.warn('verifyAndApprovePartner error:', e);
+    return false;
+  }
+}
+
+export async function rejectVendorApplication(
+  userId: string,
+  businessId?: string
+): Promise<boolean> {
+  try {
+    if (supabase) {
+      if (businessId) {
+        await supabase.from('businesses').update({ is_active: false }).eq('id', businessId);
+      }
+      await supabase
+        .from('user_profiles')
+        .update({
+          vendor_application_status: 'rejected',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+    }
+    const localApp = localVendorApplicationsMap.get(userId);
+    if (localApp) localApp.status = 'rejected';
+    return true;
+  } catch (e) {
+    console.warn('rejectVendorApplication error:', e);
+    return false;
   }
 }
 
