@@ -52,9 +52,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const [navHandler, setNavHandler] = useState<((screen: ScreenType, tab?: TabType) => void) | null>(null);
 
-  // 1. Monitor Firebase Auth State as Source of Truth & Restore Session
+  // 1. Restore local session immediately on startup, then monitor Firebase Auth State
   useEffect(() => {
     let isMounted = true;
+
+    // Fast-path: immediately restore saved session from AsyncStorage
+    AsyncStorage.getItem(STORAGE_KEY_USER).then((storedUser) => {
+      if (storedUser && isMounted) {
+        try {
+          const parsed: UserProfile = JSON.parse(storedUser);
+          if (parsed && (parsed.id || parsed.role)) {
+            setCurrentUser(parsed);
+          }
+        } catch {}
+      }
+    }).catch(() => {});
 
     // Listen to Firebase Auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -66,53 +78,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isPhone = Boolean(firebaseUser.phoneNumber);
         const provider: 'google' | 'phone' | 'email' = isGoogle ? 'google' : isPhone ? 'phone' : 'email';
 
-        const identifier = firebaseUser.phoneNumber || firebaseUser.email || firebaseUser.uid;
+        // Read local storage first to preserve any locally saved profile details
+        let existingLocal: UserProfile | null = null;
         try {
-          const profile = await fetchUserProfileFromSupabase(identifier);
+          const stored = await AsyncStorage.getItem(STORAGE_KEY_USER);
+          if (stored) existingLocal = JSON.parse(stored);
+        } catch {}
+
+        try {
+          // Look up by UID first, then email, then phone
+          let profile = await fetchUserProfileFromSupabase(firebaseUser.uid);
+          if (!profile && firebaseUser.email) {
+            profile = await fetchUserProfileFromSupabase(firebaseUser.email);
+          }
+          if (!profile && firebaseUser.phoneNumber) {
+            profile = await fetchUserProfileFromSupabase(firebaseUser.phoneNumber);
+          }
+
           if (profile && isMounted) {
+            const isCompleted =
+              profile.isProfileComplete ??
+              existingLocal?.isProfileComplete ??
+              Boolean(profile.name && (profile.phone || profile.email));
+
             const enriched: UserProfile = {
+              ...existingLocal,
               ...profile,
+              email: profile.email || firebaseUser.email || existingLocal?.email || '',
+              phone: profile.phone || existingLocal?.phone || firebaseUser.phoneNumber || '',
               authProvider: provider,
               isEmailVerified: firebaseUser.emailVerified || isGoogle,
+              isProfileComplete: isCompleted,
             };
             setCurrentUser(enriched);
             AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(enriched)).catch(() => {});
           } else if (isMounted) {
-            const newProfile: UserProfile = {
-              id: firebaseUser.uid,
-              phone: firebaseUser.phoneNumber || '',
-              email: firebaseUser.email || `${firebaseUser.uid.slice(0, 8)}@utsavhub.com`,
-              name: firebaseUser.displayName || '',
-              avatar_url:
-                firebaseUser.photoURL ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-              role: 'customer',
-              authProvider: provider,
-              isEmailVerified: firebaseUser.emailVerified || isGoogle,
-              selectedCity: 'Visakhapatnam',
-              area_locality: '',
-              isProfileComplete: false,
-            };
-            setCurrentUser(newProfile);
-            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newProfile)).catch(() => {});
-            syncUserProfileToSupabase(newProfile).catch(() => {});
+            // Check if existing local storage has completed details for this user
+            const isSameUser =
+              existingLocal &&
+              (existingLocal.id === firebaseUser.uid ||
+                (firebaseUser.email && existingLocal.email === firebaseUser.email) ||
+                (firebaseUser.phoneNumber && existingLocal.phone === firebaseUser.phoneNumber));
+
+            if (isSameUser && existingLocal) {
+              const enriched: UserProfile = {
+                ...existingLocal,
+                id: firebaseUser.uid,
+                email: existingLocal.email || firebaseUser.email || '',
+                phone: existingLocal.phone || firebaseUser.phoneNumber || '',
+                authProvider: provider,
+                isEmailVerified: firebaseUser.emailVerified || isGoogle,
+                isProfileComplete: existingLocal.isProfileComplete ?? Boolean(existingLocal.name),
+              };
+              setCurrentUser(enriched);
+              AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(enriched)).catch(() => {});
+              syncUserProfileToSupabase(enriched).catch(() => {});
+            } else {
+              const hasName = Boolean(firebaseUser.displayName);
+              const newProfile: UserProfile = {
+                id: firebaseUser.uid,
+                phone: firebaseUser.phoneNumber || '',
+                email: firebaseUser.email || `${firebaseUser.uid.slice(0, 8)}@utsavhub.com`,
+                name: firebaseUser.displayName || '',
+                avatar_url:
+                  firebaseUser.photoURL ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                role: 'customer',
+                authProvider: provider,
+                isEmailVerified: firebaseUser.emailVerified || isGoogle,
+                selectedCity: 'Visakhapatnam',
+                area_locality: '',
+                isProfileComplete: hasName,
+              };
+              setCurrentUser(newProfile);
+              AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newProfile)).catch(() => {});
+              syncUserProfileToSupabase(newProfile).catch(() => {});
+            }
           }
         } catch (e) {
           console.warn('Firebase auth state user profile sync notice:', e);
         }
       } else {
-        // No Firebase user; check local AsyncStorage for offline / demo user session
+        // No Firebase user; check local AsyncStorage for offline / stored session
         try {
           const storedUser = await AsyncStorage.getItem(STORAGE_KEY_USER);
           if (storedUser && isMounted) {
             const parsed: UserProfile = JSON.parse(storedUser);
-            // If it's a demo or stored profile, restore it
-            if (
-              parsed.id?.startsWith('usr-cust') ||
-              parsed.id?.startsWith('usr-ven') ||
-              parsed.role === 'vendor' ||
-              parsed.role === 'customer'
-            ) {
+            if (parsed && (parsed.id || parsed.role)) {
               setCurrentUser(parsed);
             }
           }
@@ -208,13 +260,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }): Promise<UserProfile> => {
     const role = data.role || 'customer';
     let profile = await fetchUserProfileFromSupabase(data.id);
+    if (!profile && data.email) {
+      profile = await fetchUserProfileFromSupabase(data.email);
+    }
 
     if (!profile) {
       profile = {
         id: data.id,
         name: data.name,
         email: data.email,
-        phone: '', // No fake sample number!
+        phone: '',
         role,
         authProvider: 'google',
         isEmailVerified: true,
@@ -223,12 +278,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar_url:
           data.avatar_url ||
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-        isProfileComplete: false,
+        isProfileComplete: Boolean(data.name),
       };
       await syncUserProfileToSupabase(profile);
     } else {
       profile.authProvider = 'google';
       profile.isEmailVerified = true;
+      if (data.avatar_url && !profile.avatar_url) profile.avatar_url = data.avatar_url;
+      if (data.name && !profile.name) profile.name = data.name;
+      if (data.email && !profile.email) profile.email = data.email;
     }
 
     setCurrentUser(profile);

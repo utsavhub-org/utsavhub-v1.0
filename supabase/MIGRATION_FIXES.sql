@@ -166,3 +166,4 @@ EXCEPTION
     WHEN OTHERS THEN
         RAISE NOTICE 'Policy setup notice: %', SQLERRM;
 END $$;
+

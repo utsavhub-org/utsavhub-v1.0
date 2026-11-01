@@ -431,14 +431,14 @@ export default function ProfileScreen({
         </View>
       )}
 
-      {/* Profile Incomplete Banner */}
-      {currentUser.isProfileComplete === false && (
+      {/* Profile Incomplete Banner (only shown if profile genuinely lacks basic details) */}
+      {currentUser.isProfileComplete === false && !currentUser.name && (
         <View style={styles.incompleteBanner}>
           <Sparkles size={16} color={THEME.colors.goldDark} />
           <View style={{ flex: 1 }}>
             <Text style={styles.incompleteTitle}>Welcome! Complete Your Profile</Text>
             <Text style={styles.incompleteSub}>
-              Set your name, location, and wedding date to personalize bookings.
+              Add your name, location, and mobile number to personalize your bookings.
             </Text>
           </View>
           <TouchableOpacity
@@ -828,21 +828,6 @@ export default function ProfileScreen({
             <Text style={styles.menuSub}>{currentUser.selectedCity || 'Visakhapatnam, Andhra Pradesh'}</Text>
           </View>
           <Edit3 size={15} color={THEME.colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={openAuthModal}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuIconCircle}>
-            <User size={16} color={THEME.colors.textPrimary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuTitle}>Switch / Link Account</Text>
-            <Text style={styles.menuSub}>Customer or Vendor partner login</Text>
-          </View>
-          <ChevronRight size={16} color={THEME.colors.textMuted} />
         </TouchableOpacity>
 
         {/* Dedicated Log Out Button */}

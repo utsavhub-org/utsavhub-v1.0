@@ -129,17 +129,22 @@ export async function syncUserProfileToSupabase(profile: UserProfile): Promise<b
   if (!supabase) return true;
 
   try {
-    const payload = {
+    const payload: any = {
       id: profile.id,
       phone: profile.phone || null,
+      email: profile.email || null,
       full_name: profile.name,
       role: profile.role || 'customer',
       city: profile.selectedCity || 'Visakhapatnam',
       area_locality: profile.area_locality || null,
       avatar_url: profile.avatar_url || null,
-      is_profile_complete: profile.isProfileComplete ?? true,
+      is_profile_complete: profile.isProfileComplete ?? Boolean(profile.name),
       updated_at: new Date().toISOString(),
     };
+
+    if (profile.businessId) payload.business_id = profile.businessId;
+    if (profile.businessName) payload.business_name = profile.businessName;
+    if (profile.businessCategory) payload.business_category = profile.businessCategory;
 
     const { error } = await supabase
       .from('user_profiles')
@@ -157,40 +162,64 @@ export async function syncUserProfileToSupabase(profile: UserProfile): Promise<b
 }
 
 export async function fetchUserProfileFromSupabase(phoneOrId: string): Promise<UserProfile | null> {
-  if (!supabase) return null;
+  if (!supabase || !phoneOrId) return null;
 
   try {
-    const isPhone = phoneOrId.startsWith('+') || /^\d{10,12}$/.test(phoneOrId);
+    const isEmail = phoneOrId.includes('@');
+    const isPhone = !isEmail && (phoneOrId.startsWith('+') || /^\d{10,12}$/.test(phoneOrId.replace(/\s+/g, '')));
+    
     let query = supabase.from('user_profiles').select('*');
     
-    if (isPhone) {
+    if (isEmail) {
+      query = query.eq('email', phoneOrId);
+    } else if (isPhone) {
       query = query.eq('phone', phoneOrId);
     } else {
       query = query.eq('id', phoneOrId);
     }
 
-    const { data, error } = await query.maybeSingle();
+    let { data, error } = await query.maybeSingle();
+
+    // If not found and identifier looked like UID, also check if phone or email is available
+    if ((error || !data) && !isEmail && !isPhone) {
+      const fallbackQuery = await supabase.from('user_profiles').select('*').or(`id.eq.${phoneOrId},email.eq.${phoneOrId}`).maybeSingle();
+      if (fallbackQuery.data) {
+        data = fallbackQuery.data;
+        error = null;
+      }
+    }
 
     if (error || !data) {
       return null;
     }
 
+    const safePhone = data.phone || '';
+    const safeEmail =
+      data.email ||
+      (safePhone
+        ? `${data.role}-${safePhone.slice(-4)}@utsavhub.com`
+        : `${(data.id || 'user').slice(0, 8)}@utsavhub.com`);
+
+    const isComplete =
+      data.is_profile_complete !== null && data.is_profile_complete !== undefined
+        ? Boolean(data.is_profile_complete)
+        : Boolean(data.full_name);
+
     return {
       id: data.id,
-      phone: data.phone,
-      name: data.full_name || 'Guest User',
-      email: `${data.role}-${data.phone.slice(-4)}@utsavhub.com`,
+      phone: safePhone,
+      name: data.full_name || '',
+      email: safeEmail,
       role: (data.role as any) || 'customer',
       selectedCity: data.city || 'Visakhapatnam',
       area_locality: data.area_locality || '',
       avatar_url: data.avatar_url || '',
-      weddingDate: data.wedding_date || undefined,
-      partnerName: data.partner_name || undefined,
       businessName: data.business_name || undefined,
       businessCategory: data.business_category || undefined,
-      isProfileComplete: Boolean(data.is_profile_complete),
+      isProfileComplete: isComplete,
     };
   } catch (err) {
+    console.warn('fetchUserProfileFromSupabase notice:', err);
     return null;
   }
 }
