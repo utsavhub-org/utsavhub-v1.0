@@ -883,3 +883,4 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
 });
+
